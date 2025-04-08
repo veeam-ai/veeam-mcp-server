@@ -1,0 +1,5 @@
+ignores:
+  - "@types/*"
+  - "ts-jest"
+  - "ts-node"
+  - "jest"

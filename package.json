@@ -1,0 +1,70 @@
+{
+    "name": "veeam-intelligence-mcp-server",
+    "version": "1.0.0",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "prestart": "npm ci",        
+        "start": "node --env-file-if-exists=.env build/index.js",
+        "build": "rm -rf build/ && node esbuild.config.js",
+        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+        "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+        "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+        "test:e2e": "node --experimental-vm-modules --env-file-if-exists=.env.test node_modules/jest/bin/jest.js --config jest.e2e.config.js",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+        "format": "prettier --log-level warn --write \"src/**/*.{ts,js,json}\" ",
+        "typecheck": "tsc --noEmit",
+        "audit:security": "npm audit",
+        "audit:deps": "depcheck",
+        "audit": "npm run audit:security && npm run audit:deps",
+        "ci": "npm run format:check && npm run lint && npm run typecheck && echo \"\n✅ [PASSED]: All quality checks complete.\"",
+        "ci:full": "npm run ci && npm test && npm run build && npm run audit && echo \"\n🚀 [PASSED]: Full CI complete.\"",
+        "tidy": "npm run format && npm run lint:fix && npm run ci",        
+        "mcp_inspector": "node esbuild.config.js && npx @modelcontextprotocol/inspector node ./build/index.js"
+    },
+    "keywords": [
+        "veeam",
+        "mcp",
+        "model-context-protocol",
+        "veeam-intelligence",
+        "veeam-one",
+        "backup",
+        "monitoring",
+        "ai",
+        "automation"
+    ],
+    "author": "Veeam",
+    "license": "MIT",
+    "description": "Veeam Intelligence MCP server that integrates with any MCP-compatible client (Claude Desktop, VS Code, etc.) for enhanced Veeam Backup & Replication, Veeam One, and VSPC monitoring and management capabilities",
+    "engines": {
+        "node": ">=24.0.0",
+        "npm": ">=10.0.0"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "^1.25.2",
+        "axios": "^1.13.2",
+        "rxjs": "7.8.2",
+        "socket.io-client": "4.8.1",
+        "uuid": "13.0.0",
+        "zod": "^4.3.5"
+    },
+    "devDependencies": {
+        "@eslint/js": "^9.39.2",
+        "@jest/globals": "^30.2.0",
+        "@types/eslint__js": "^8.42.3",
+        "@types/jest": "^30.0.0",
+        "depcheck": "^1.4.7",
+        "esbuild": "0.27.2",
+        "eslint": "^9.39.2",
+        "eslint-config-prettier": "^10.1.8",
+        "eslint-plugin-license-header": "^0.8.0",
+        "jest": "^30.2.0",
+        "prettier": "^3.7.4",
+        "ts-jest": "^29.4.6",
+        "ts-node": "10.9.2",
+        "typescript": "5.9.3",
+        "typescript-eslint": "^8.52.0"
+    }
+}
