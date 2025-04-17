@@ -2,10 +2,15 @@
 
 This project provides a Veeam Intelligence MCP server that integrates with Claude Desktop for enhanced Veeam One monitoring and management capabilities.
 
+## Roadmap & Future Releases
+- Veeam Backup and Replication (coming soon)
+- VDC (coming soon)
+
 ## Prerequisites
 
 - Docker installed on your system
 - Veeam One server with a valid license (Community edition is not supported).
+
 
 ## Setup
 
