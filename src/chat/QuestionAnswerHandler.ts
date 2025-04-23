@@ -110,37 +110,6 @@ export class QuestionAnswerHandler implements SocketSubscribeHandlers {
     }
 
     public async onToolInvocation(data: SocketMessageData): Promise<void> {
-        /*
-            {
-                "invocation_id":"ba3e5302-8417-45e9-a1af-c62664067adf",
-                "tool_name":"fetch_data_from_endpoint",
-                "parameters":{
-                    "endpoint_path":"/api/v2.2/alarms/triggeredAlarms",
-                    "query_params":{
-                        "Offset":0,
-                        "Limit":1000,
-                        "Filter":{
-                            "property":"status",
-                            "operation":"in",
-                            "collation":"ignorecase",
-                            "value":[
-                            "Error",
-                            "Warning"
-                            ]
-                        },
-                        "Sort":{
-                            "property":"triggeredTime",
-                            "direction":"descending",
-                            "collation":"ignorecase"
-                        },
-                        "Select":"name,triggeredTime,repeatCount,status,alarmAssignment"
-                    }
-                }
-            }
-
-            Offset=0&Limit=20&Filter=%7B%22property%22%3A%22status%22%2C%22operation%22%3A%22in%22%2C%22collation%22%3A%22ignorecase%22%2C%22value%22%3A%5B%22Error%22%2C%22Warning%22%5D%7D&Sort=%7B%22property%22%3A%22triggeredTime%22%2C%22direction%22%3A%22descending%22%2C%22collation%22%3A%22ignorecase%22%7D&Select=name%2CtriggeredTime%2Cstatus%2CalarmAssignment
-        */
-
         const mode = this.serviceInfo.chatbotMode;
         const config = JSON.parse(data.message) as ToolInvocationConfig;
 
