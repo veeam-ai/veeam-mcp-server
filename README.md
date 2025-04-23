@@ -26,7 +26,7 @@ This project provides a Veeam Intelligence MCP server that integrates with Claud
    ```
    Edit the `.env` file and fill in your Veeam One server details:
    - `VONE_WEB_URL`: URL of your Veeam One server, for example https://veeamone-srv:1239/
-   - `VONE_ADMIN_USERNAME`: Veeam One administrator username, example: domain\\username
+   - `VONE_ADMIN_USERNAME`: Veeam One administrator username, for example: domain\\username
    - `VONE_ADMIN_PASSWORD`: Administrator password
 
 ## Build
