@@ -41,6 +41,18 @@ make build
 docker build -t veeam-mcp .
 ```
 
+## Clean
+
+To remove any previously built Docker images:
+
+```bash
+# Option 1: Using make
+make clean
+
+# Option 2: Using docker directly
+docker rmi veeam-mcp || true 
+```
+
 ## Security Warning
 
 ⚠️ **Important Security Notice**: The Docker image built from this repository will contain the `.env` file with your Veeam One administrator credentials. For security reasons:

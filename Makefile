@@ -1,4 +1,4 @@
-.PHONY: build run
+.PHONY: build clean
 
 # Default target
 all: build
