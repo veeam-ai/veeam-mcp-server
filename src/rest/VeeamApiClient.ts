@@ -1,3 +1,8 @@
+/**
+ * Copyright © Veeam Software Group GmbH. All rights reserved.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
 import { ApiClient } from './ApiClient.js';
 import { AuthResult, ServiceInfo, ToolInvocationConfig } from '../common/types.js';
 import { ToolCallingError } from '../common/errors.js';

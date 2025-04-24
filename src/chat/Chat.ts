@@ -1,3 +1,8 @@
+/**
+ * Copyright © Veeam Software Group GmbH. All rights reserved.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
 import { Socket } from '../socket/Socket.js';
 import { MessageRole, ServiceInfo, AuthResponse } from '../common/types.js';
 import { SocketEmitConfig } from '../socket/types.js';

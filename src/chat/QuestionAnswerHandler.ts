@@ -1,3 +1,8 @@
+/**
+ * Copyright © Veeam Software Group GmbH. All rights reserved.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
 import { SocketMessageData, SocketSubscribeHandlers, ResponseChunk } from '../socket/types.js';
 import { Artifact, ServiceInfo, ChatbotMode, ToolInvocationConfig } from '../common/types.js';
 import { Socket } from '../socket/Socket.js';
