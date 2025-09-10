@@ -158,7 +158,6 @@ export interface PromptsItem {
 }
 
 export interface SocketConfig {
-    productSuffix: string;
     withCredentials?: boolean;
     socketPath?: string;
 }

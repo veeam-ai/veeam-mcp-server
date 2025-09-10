@@ -8,6 +8,7 @@
     "dev": "tsc --watch",
     "build": "rm -rf build/ && tsc",
     "up": "docker compose up --build",
+    "debug": "rm -rf build/ && tsc && node ./build/debug.js",
     "mcp_inspector": "tsc && npx @modelcontextprotocol/inspector node ./build/index.js"
   },
   "keywords": [],

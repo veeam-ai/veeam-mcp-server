@@ -38,7 +38,7 @@ export class Socket {
             const now = new Date();
             const socketHost = this.resolveSocketHost(
                 serviceInfo.chatbotApiUrl,
-                config.productSuffix,
+                "vone",
             );
             const uri = this.resolveSocketURI(socketHost);
             const path = this.resolveSocketPath(socketHost, config.socketPath);
@@ -345,7 +345,7 @@ export class Socket {
         const base = apiUrl.replace(/\/$/, '');
 
         if (productSuffix.length > 0) {
-            return `${base}${productSuffix}`;
+            return `${base}/${productSuffix}`;
         }
 
         return base;

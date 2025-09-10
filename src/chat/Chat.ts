@@ -27,7 +27,6 @@ export class Chat implements ChatInterface {
 
     private initializeSocket() {
         this.socket.initSocket(this.serviceInfo, {
-            productSuffix: '',
             socketPath: '/socket.io',
             withCredentials: true,
         });
