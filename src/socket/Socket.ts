@@ -35,10 +35,14 @@ export class Socket {
 
     public initSocket(serviceInfo: ServiceInfo, config: SocketConfig) {
         if (this.instance === null) {
+            if (!process.env.PRODUCT_NAME) {
+                throw new Error("PRODUCT_NAME environment variable is required");
+            }
+
             const now = new Date();
             const socketHost = this.resolveSocketHost(
                 serviceInfo.chatbotApiUrl,
-                "vone",
+                process.env.PRODUCT_NAME,
             );
             const uri = this.resolveSocketURI(socketHost);
             const path = this.resolveSocketPath(socketHost, config.socketPath);
@@ -49,6 +53,7 @@ export class Socket {
                 withCredentials: config.withCredentials ?? false,
                 auth: {
                     token: null,
+                    ...(serviceInfo.userRole && { user_role: serviceInfo.userRole }),
                     mode: serviceInfo.chatbotMode,
                     chat_id: this.chatId,
                     timezone_offset: now.getTimezoneOffset() * -1,
