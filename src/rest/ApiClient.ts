@@ -15,6 +15,7 @@ interface ApiClientConfig {
   baseURL: string;
   username: string;
   password: string;
+  authUrl: string;
 }
 
 export class ApiClient {
@@ -64,15 +65,22 @@ export class ApiClient {
 
   private async authenticate(): Promise<void> {
     try {
-      const authData = {
-        username: this.config.username,
-        password: this.config.password,
-        grant_type: 'password'
-      };
+
+      const authData = new URLSearchParams();
+      authData.append('username', this.config.username);
+      authData.append('password', this.config.password);
+      authData.append('grant_type', 'password');
+
+      const authUrl = this.config.authUrl;
 
       const response = await axios.post<AuthResponse>(
-        `${this.config.baseURL}/api/token`,
-        authData
+        authUrl,
+        authData,
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          }
+        }
       );
 
       if (response.status === 400) {
@@ -81,8 +89,16 @@ export class ApiClient {
 
       this.accessToken = response.data.access_token;
       this.tokenExpirationTime = Date.now() + (response.data.expires_in * 1000);
-    } catch (error) {
-      console.error('Authentication failed:', error);
+    } catch (error: any) {
+      if (axios.isAxiosError(error)) {
+        console.error('Authentication failed:', error.message);
+        if (error.response) {
+            console.error('Response status:', error.response.status);
+            console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+        }
+      } else {
+        console.error('Authentication failed:', error);
+      }
       throw error;
     }
   }

@@ -128,6 +128,7 @@ export interface ServiceInfo {
     chatbotMode: ChatbotMode;
     productName: string;
     productVersion: string;
+    userRole?: string;
 }
 
 interface BaseToolInvocationConfig {
