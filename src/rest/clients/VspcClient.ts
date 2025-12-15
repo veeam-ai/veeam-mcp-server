@@ -1,16 +1,16 @@
 import { BaseVeeamClient } from './BaseVeeamClient.js';
 import { ServiceInfo, AuthResult } from '../../common/types.js';
 
-export class VspcClient extends BaseVeeamClient {
-    private pluginId: string;
+const VSPC_VI_PLUGIN_ID = 'acfa09fe128645f09cd5b794d9d183d0';
 
-    constructor(baseURL: string, username: string, password: string, pluginId: string) {
+export class VspcClient extends BaseVeeamClient {
+
+    constructor(baseURL: string, username: string, password: string) {
         super(baseURL, username, password, `${baseURL}/api/v3/token`);
-        this.pluginId = pluginId;
     }
 
     async getServiceInfo(): Promise<ServiceInfo> {
-        const response = await this.apiClient.get<any>(`plugins/${this.pluginId}/api/v1/serviceInfo`);
+        const response = await this.apiClient.get<any>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/serviceInfo`);
         if (response.chatBotApiUrl && !response.chatbotApiUrl) {
             response.chatbotApiUrl = response.chatBotApiUrl;
             delete response.chatBotApiUrl;
@@ -31,6 +31,6 @@ export class VspcClient extends BaseVeeamClient {
             }
         };
 
-        return this.apiClient.post<AuthResult>(`plugins/${this.pluginId}/api/v1/authenticate`, data, config);
+        return this.apiClient.post<AuthResult>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/authenticate`, data, config);
     }
 }

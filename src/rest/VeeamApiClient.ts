@@ -26,10 +26,7 @@ export class VeeamApiClient implements VeeamClient {
         this.client = new VoneClient(baseURL, username, password);
         break;
       case 'vspc':
-        if (!process.env.VSPC_VI_PLUGIN_ID) {
-            throw new Error('Missing required environment variable: VSPC_VI_PLUGIN_ID');
-        }
-        this.client = new VspcClient(baseURL, username, password, process.env.VSPC_VI_PLUGIN_ID);
+        this.client = new VspcClient(baseURL, username, password);
         break;
       case 'vbr':
         this.client = new VbrClient(baseURL, username, password);
