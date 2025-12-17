@@ -1,6 +1,6 @@
 # Veeam Intelligence MCP Server
 
-This project provides a Veeam Intelligence MCP server that integrates with Claude Desktop for enhanced Veeam One monitoring and management capabilities.
+This project provides a Veeam Intelligence MCP server that integrates with any MCP-compatible client (such as Claude Desktop, VS Code, and others) for enhanced Veeam Backup & Replication, Veeam One, and VSPC monitoring and management capabilities.
 
 ## Roadmap & Future Releases
 - Veeam Backup and Replication (coming soon)

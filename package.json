@@ -1,33 +1,45 @@
 {
-  "name": "veeam-mcp",
-  "version": "1.0.0",
-  "main": "index.js",
-  "type": "module",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node esbuild.config.js --watch",
-    "build": "rm -rf build/ && node esbuild.config.js",
-    "up": "docker compose up --build",
-    "debug": "rm -rf build/ && node esbuild.config.js && node ./build/index.js",
-    "mcp_inspector": "node esbuild.config.js && npx @modelcontextprotocol/inspector node ./build/index.js"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "MIT",
-  "description": "",
-  "engines": {
-    "node": ">=22.0.0"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "1.25.1",
-    "dotenv": "17.2.3",
-    "rxjs": "7.8.2",
-    "socket.io-client": "4.8.1",
-    "uuid": "13.0.0"
-  },
-  "devDependencies": {
-    "esbuild": "^0.27.1",
-    "ts-node": "10.9.2",
-    "typescript": "5.9.3"
-  }
+    "name": "veeam-mcp",
+    "version": "1.0.0",
+    "main": "index.js",
+    "type": "module",
+    "scripts": {
+        "test": "echo \"Error: no test specified\" && exit 1",
+        "dev": "node esbuild.config.js --watch",
+        "build": "rm -rf build/ && node esbuild.config.js",
+        "up": "docker compose up --build",
+        "debug": "rm -rf build/ && node esbuild.config.js && node ./build/index.js",
+        "mcp_inspector": "node esbuild.config.js && npx @modelcontextprotocol/inspector node ./build/index.js"
+    },
+    "keywords": [
+        "veeam",
+        "mcp",
+        "model-context-protocol",
+        "veeam-intelligence",
+        "veeam-one",
+        "backup",
+        "monitoring",
+        "claude",
+        "ai",
+        "automation"
+    ],
+    "author": "Veeam",
+    "license": "MIT",
+    "description": "Veeam Intelligence MCP server that integrates with any MCP-compatible client (Claude Desktop, VS Code, etc.) for enhanced Veeam Backup & Replication, Veeam One, and VSPC monitoring and management capabilities",
+    "engines": {
+        "node": ">=22.0.0",
+        "npm": ">=10.0.0"
+    },
+    "dependencies": {
+        "@modelcontextprotocol/sdk": "1.25.1",
+        "dotenv": "17.2.3",
+        "rxjs": "7.8.2",
+        "socket.io-client": "4.8.1",
+        "uuid": "13.0.0"
+    },
+    "devDependencies": {
+        "esbuild": "0.27.2",
+        "ts-node": "10.9.2",
+        "typescript": "5.9.3"
+    }
 }
