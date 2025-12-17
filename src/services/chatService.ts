@@ -110,10 +110,13 @@ export class ChatService implements SocketSubscribeHandlers {
     public async onChunk(data: SocketMessageData): Promise<void> {
         const chunk = JSON.parse(data.message) as ResponseChunk;
 
-        if (chunk.type === 'token') {
-            this.message += chunk.payload;
-        } else if (chunk.type === 'artifact') {
-            this.artifacts.push(chunk.payload);
+        switch (chunk.type) {
+            case 'token':
+                this.message += chunk.payload;
+                break;
+            case 'artifact':
+                this.artifacts.push(chunk.payload);
+                break;
         }
     }
 
