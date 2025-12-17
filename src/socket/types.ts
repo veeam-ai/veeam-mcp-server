@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { Artifact, MessageRole, ProcessStepStatus } from '../common/types.js';
+import { Artifact, MessageRole } from '@/common/types';
 
 export enum ConnectionErrorCode {
     TokenRequired = 'TOKEN_REQUIRED',
@@ -30,9 +30,6 @@ export enum SocketMessageType {
     tokenRequired = 'tokenRequired',
     toolInvocation = 'toolInvocation',
     unknownProduct = 'unknownProduct',
-    processStart = 'processStart',
-    processEnd = 'processEnd',
-    processUpdate = 'processUpdate',
 }
 
 export interface SocketMessageData {
@@ -87,13 +84,6 @@ interface ResponseChunkArtifact {
 
 export type ResponseChunk = ResponseChunkToken | ResponseChunkArtifact;
 
-export interface ProcessUpdatePayload {
-    id: number;
-    label: string;
-    status: ProcessStepStatus;
-    reason: string;
-}
-
 export interface SocketSubscribeHandlers {
     onChunk: (data: SocketMessageData) => Promise<void>;
     onConnected: (data: SocketMessageData) => Promise<void>;
@@ -107,7 +97,4 @@ export interface SocketSubscribeHandlers {
     onTokenRequired: (data: SocketMessageData) => Promise<void>;
     onToolInvocation: (data: SocketMessageData) => Promise<void>;
     onUnknownProduct: (data: SocketMessageData) => Promise<void>;
-    onProcessStart: (data: SocketMessageData) => Promise<void>;
-    onProcessUpdate: (data: SocketMessageData) => Promise<void>;
-    onProcessEnd: (data: SocketMessageData) => Promise<void>;
 }

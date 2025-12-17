@@ -3,5 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-export { Socket } from './Socket';
-export * from './types';
+import { Artifact } from '@/common/types';
+
+export interface SendMessageResponse {
+    message: string;
+    artifacts: Artifact[];
+}

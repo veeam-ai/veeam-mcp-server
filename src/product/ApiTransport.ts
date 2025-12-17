@@ -1,0 +1,161 @@
+/**
+ * Copyright © Veeam Software Group GmbH. All rights reserved.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+interface AuthResponse {
+    access_token: string;
+    expires_in: number;
+    token_type: 'Bearer';
+}
+
+interface ApiClientConfig {
+    baseURL: string;
+    username: string;
+    password: string;
+    authUrl: string;
+}
+
+interface RequestConfig {
+    headers?: Record<string, string>;
+    params?: Record<string, string>;
+}
+
+export class ApiTransport {
+    private accessToken: string | null = null;
+    private tokenExpirationTime: number | null = null;
+    private readonly config: ApiClientConfig;
+
+    constructor(config: ApiClientConfig) {
+        this.config = config;
+    }
+
+    private shouldRefreshToken(): boolean {
+        if (!this.accessToken || !this.tokenExpirationTime) {
+            return true;
+        }
+
+        const bufferTimeMS = 14 * 60 * 1000;
+        return Date.now() + bufferTimeMS >= this.tokenExpirationTime;
+    }
+
+    private async authenticate(): Promise<void> {
+        try {
+            const authData = new URLSearchParams();
+            authData.append('username', this.config.username);
+            authData.append('password', this.config.password);
+            authData.append('grant_type', 'password');
+
+            const authUrl = this.config.authUrl;
+
+            const response = await fetch(authUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: authData,
+            });
+
+            if (!response.ok) {
+                const errorData = await response.text();
+                console.error('Authentication failed with status:', response.status);
+                console.error('Response data:', errorData);
+                throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
+            }
+
+            const data: AuthResponse = await response.json();
+            this.accessToken = data.access_token;
+            this.tokenExpirationTime = Date.now() + data.expires_in * 1000;
+        } catch (error: any) {
+            console.error('Authentication failed:', error.message || error);
+            throw error;
+        }
+    }
+
+    // Generic request method with automatic token handling
+    async request<T>(config: {
+        method: string;
+        url: string;
+        data?: any;
+        headers?: Record<string, string>;
+        params?: Record<string, string>;
+    }): Promise<T> {
+        // Ensure we have a valid token
+        if (this.shouldRefreshToken()) {
+            await this.authenticate();
+        }
+
+        // Build full URL
+        let url = config.url.startsWith('http')
+            ? config.url
+            : `${this.config.baseURL}${config.url}`;
+
+        // Add query parameters if provided
+        if (config.params) {
+            const searchParams = new URLSearchParams(config.params);
+            url += `?${searchParams.toString()}`;
+        }
+
+        // Build headers
+        const headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+            ...config.headers,
+        };
+
+        // Add auth token
+        if (this.accessToken) {
+            headers['Authorization'] = `Bearer ${this.accessToken}`;
+        }
+
+        // Build request options
+        const options: RequestInit = {
+            method: config.method,
+            headers,
+        };
+
+        // Add body if present
+        if (config.data) {
+            options.body =
+                typeof config.data === 'string' ? config.data : JSON.stringify(config.data);
+        }
+
+        try {
+            const response = await fetch(url, options);
+
+            // Handle 401 - retry with new token
+            if (response.status === 401) {
+                await this.authenticate();
+                // Update headers with new token
+                if (this.accessToken) {
+                    headers['Authorization'] = `Bearer ${this.accessToken}`;
+                }
+                const retryResponse = await fetch(url, { ...options, headers });
+
+                if (!retryResponse.ok) {
+                    throw new Error(
+                        `Request failed: ${retryResponse.status} ${retryResponse.statusText}`,
+                    );
+                }
+
+                return await retryResponse.json();
+            }
+
+            if (!response.ok) {
+                throw new Error(`Request failed: ${response.status} ${response.statusText}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            throw error;
+        }
+    }
+
+    // Convenience methods for common HTTP verbs
+    async get<T>(url: string, config?: RequestConfig): Promise<T> {
+        return this.request<T>({ ...config, method: 'GET', url });
+    }
+
+    async post<T>(url: string, data?: any, config?: RequestConfig): Promise<T> {
+        return this.request<T>({ ...config, method: 'POST', url, data });
+    }
+}

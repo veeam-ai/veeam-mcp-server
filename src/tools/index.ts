@@ -3,5 +3,4 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-export { Socket } from './Socket';
-export * from './types';
+export { answerQuestion } from "./answerQuestion";

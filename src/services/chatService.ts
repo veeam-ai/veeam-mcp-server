@@ -1,0 +1,195 @@
+/**
+ * Copyright © Veeam Software Group GmbH. All rights reserved.
+ * Licensed under the MIT License. See LICENSE in the project root for license information.
+ */
+
+import { Socket } from '@/socket/Socket';
+import {
+    ServiceInfo,
+    AuthResponse,
+    Artifact,
+    ChatbotMode,
+    ToolInvocationConfig,
+    MessageRole,
+} from '@/common/types';
+import {
+    SocketEmitConfig,
+    SocketMessageData,
+    SocketSubscribeHandlers,
+    ResponseChunk,
+} from '@/socket/types';
+import { ProductClient } from '@/product';
+import { ToolCallingError } from '@/common/errors';
+import { debug } from '@/common/debug';
+import { Deferred } from '@/utils';
+import { SendMessageResponse } from './types';
+
+export class ChatService implements SocketSubscribeHandlers {
+    private socket: Socket;
+    private serviceInfo!: ServiceInfo;
+    private authResponse!: AuthResponse;
+    private productClient: ProductClient;
+    private message: string = '';
+    private artifacts: Artifact[] = [];
+
+    // Used to coordinate async message streaming: sendMessage() waits on this promise
+    // until onDisconnected() resolves it, ensuring we've received all chunks before returning
+    private messageComplete!: Deferred<void>;
+
+    constructor(productClient: ProductClient) {
+        this.productClient = productClient;
+        this.socket = new Socket();
+    }
+
+    public async initialize(): Promise<void> {
+        const serviceInfo = await this.productClient.getServiceInfo();
+        const authResult = await this.productClient.authenticate();
+
+        this.serviceInfo = serviceInfo;
+        this.authResponse = authResult.response;
+
+        this.setupSocket();
+    }
+
+    private setupSocket(): void {
+        this.socket.initSocket(this.serviceInfo, {
+            socketPath: '/socket.io',
+            withCredentials: true,
+        });
+        this.socket.setAuthToken(this.authResponse.access_token);
+        this.socket.connect();
+    }
+
+    public async sendMessage(message: string): Promise<SendMessageResponse> {
+        this.message = '';
+        this.artifacts = [];
+        this.messageComplete = new Deferred<void>();
+
+        const config: SocketEmitConfig = {
+            name: 'chat',
+            value: {
+                messages: [
+                    {
+                        role: MessageRole.user,
+                        content: message,
+                    },
+                ],
+                artifacts: [],
+                metadata: {
+                    pii_data_in_history: false,
+                },
+            },
+        };
+
+        this.socket.subscribe(this);
+        this.socket.emit(config);
+
+        await this.messageComplete.promise;
+
+        return { message: this.message, artifacts: this.artifacts };
+    }
+
+    public async reset(): Promise<void> {
+        this.socket.disconnect();
+        await this.initialize();
+    }
+
+    public disconnect(): void {
+        this.socket.disconnect();
+    }
+
+    public getMessage(): string {
+        return this.message;
+    }
+
+    public getArtifacts(): Artifact[] {
+        return this.artifacts;
+    }
+
+    // Socket io handlers
+    public async onChunk(data: SocketMessageData): Promise<void> {
+        const chunk = JSON.parse(data.message) as ResponseChunk;
+
+        if (chunk.type === 'token') {
+            this.message += chunk.payload;
+        } else if (chunk.type === 'artifact') {
+            this.artifacts.push(chunk.payload);
+        }
+    }
+
+    public async onConnected(data: SocketMessageData): Promise<void> {
+        //debug();
+    }
+
+    public async onConnectionError(data: SocketMessageData): Promise<void> {
+        debug();
+    }
+
+    public async onConnectionInfoError(data: SocketMessageData): Promise<void> {
+        debug();
+    }
+
+    public async onDisconnected(data: SocketMessageData): Promise<void> {
+        this.messageComplete?.resolve();
+    }
+
+    public async onReconnectError(data: SocketMessageData): Promise<void> {
+        debug();
+    }
+
+    public async onReconnectFailed(data: SocketMessageData): Promise<void> {
+        debug();
+    }
+
+    public async onResponseError(data: SocketMessageData): Promise<void> {
+        debug();
+    }
+
+    public async onTokenInvalid(data: SocketMessageData): Promise<void> {
+        const authResult = await this.productClient.authenticate();
+        this.authResponse = authResult.response;
+        this.socket.setAuthToken(this.authResponse.access_token);
+    }
+
+    public async onTokenRequired(data: SocketMessageData): Promise<void> {
+        const authResult = await this.productClient.authenticate();
+        this.authResponse = authResult.response;
+        this.socket.setAuthToken(this.authResponse.access_token);
+    }
+
+    public async onToolInvocation(data: SocketMessageData): Promise<void> {
+        const config = JSON.parse(data.message) as ToolInvocationConfig;
+
+        if (this.serviceInfo.chatbotMode === ChatbotMode.Base) {
+            this.emitToolResult(
+                config.invocation_id,
+                'error',
+                'Chatbot running in "Base" mode. Tool calls are restricted in this mode',
+            );
+            return;
+        }
+
+        try {
+            const { data, status } = await this.productClient.getToolCallData(config);
+            this.emitToolResult(config.invocation_id, status, data);
+        } catch (err) {
+            const error = err as ToolCallingError;
+            this.emitToolResult(config.invocation_id, 'error', error.data);
+        }
+    }
+
+    public async onUnknownProduct(data: SocketMessageData): Promise<void> {
+        debug();
+    }
+
+    private emitToolResult(invocationId: string, status: string, data: unknown): void {
+        this.socket.emit({
+            name: 'tool_result',
+            value: {
+                invocation_id: invocationId,
+                status,
+                data,
+            },
+        });
+    }
+}

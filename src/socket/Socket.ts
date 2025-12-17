@@ -7,7 +7,7 @@ import { Subject } from 'rxjs';
 import { io, Socket as SocketIO } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 
-import { ChatbotMode, ServiceInfo, SocketConfig, ToolInvocationConfig } from '../common/types.js';
+import { ChatbotMode, ServiceInfo, SocketConfig, ToolInvocationConfig } from '@/common/types';
 
 import {
     ConnectionError,
@@ -18,8 +18,7 @@ import {
     ResponseErrorConfig,
     ResponseChunk,
     SocketSubscribeHandlers,
-    ProcessUpdatePayload,
-} from './types.js';
+} from './types';
 
 export class Socket {
     private instance: SocketIO | null;
@@ -36,7 +35,7 @@ export class Socket {
     public initSocket(serviceInfo: ServiceInfo, config: SocketConfig) {
         if (this.instance === null) {
             if (!process.env.PRODUCT_NAME) {
-                throw new Error("PRODUCT_NAME environment variable is required");
+                throw new Error('PRODUCT_NAME environment variable is required');
             }
 
             const now = new Date();
@@ -47,17 +46,22 @@ export class Socket {
             const uri = this.resolveSocketURI(socketHost);
             const path = this.resolveSocketPath(socketHost, config.socketPath);
 
+            const auth: any = {
+                token: null,
+                mode: serviceInfo.chatbotMode,
+                chat_id: this.chatId,
+                timezone_offset: now.getTimezoneOffset() * -1,
+            };
+
+            if (serviceInfo.userRole) {
+                auth.user_role = serviceInfo.userRole;
+            }
+
             this.instance = io(uri, {
                 path,
                 autoConnect: false,
                 withCredentials: config.withCredentials ?? false,
-                auth: {
-                    token: null,
-                    ...(serviceInfo.userRole && { user_role: serviceInfo.userRole }),
-                    mode: serviceInfo.chatbotMode,
-                    chat_id: this.chatId,
-                    timezone_offset: now.getTimezoneOffset() * -1,
-                },
+                auth,
                 reconnectionAttempts: 2,
             });
 
@@ -87,7 +91,7 @@ export class Socket {
 
     public subscribe(handlers: SocketSubscribeHandlers) {
         if (this.instance === null) {
-            throw new Error("[TBD] Socket wasn't initialized");
+            throw new Error("Veeam Intelligence Socket connection wasn't initialized");
         }
 
         const subscription = this.subject.subscribe(async ({ data, type }) => {
@@ -140,20 +144,10 @@ export class Socket {
                     handlers.onUnknownProduct(data);
                     break;
                 }
-                case SocketMessageType.processStart: {
-                    handlers.onProcessStart(data);
-                    break;
-                }
-                case SocketMessageType.processEnd: {
-                    handlers.onProcessEnd(data);
-                    break;
-                }
-                case SocketMessageType.processUpdate: {
-                    handlers.onProcessUpdate(data);
-                    break;
-                }
                 default: {
-                    throw new Error(`[TBD] Unknown socket message type captured: ${type}`);
+                    throw new Error(
+                        `Unknown Veeam Intelligence Socket message type captured: ${type}`,
+                    );
                 }
             }
         });
@@ -166,7 +160,7 @@ export class Socket {
             if (this.currentSessionId === null) {
                 this.currentSessionId = uuidv4();
 
-                const message = `[VAIA Socket] Connection established successfully. Session id: ${this.currentSessionId}`;
+                const message = `Veeam Intelligence Socket Connection established successfully. Session id: ${this.currentSessionId}`;
 
                 this.subject.next({
                     type: SocketMessageType.connected,
@@ -191,7 +185,7 @@ export class Socket {
         });
 
         this.getInstance().on('disconnect', () => {
-            const message = `[VAIA Socket] Connection ${this.currentSessionId} is terminated`;
+            const message = `Veeam Intelligence Socket Connection ${this.currentSessionId} is terminated`;
             this.currentSessionId = null;
 
             this.subject.next({
@@ -222,45 +216,6 @@ export class Socket {
                 type: SocketMessageType.toolInvocation,
                 data: {
                     message: JSON.stringify(config),
-                },
-            });
-        });
-
-        this.getInstance().on('process_start', () => {
-            if (this.currentSessionId === null) {
-                return;
-            }
-
-            this.subject.next({
-                type: SocketMessageType.processStart,
-                data: {
-                    message: '',
-                },
-            });
-        });
-
-        this.getInstance().on('process_end', () => {
-            if (this.currentSessionId === null) {
-                return;
-            }
-
-            this.subject.next({
-                type: SocketMessageType.processEnd,
-                data: {
-                    message: '',
-                },
-            });
-        });
-
-        this.getInstance().on('process_update', (payload: ProcessUpdatePayload) => {
-            if (this.currentSessionId === null) {
-                return;
-            }
-
-            this.subject.next({
-                type: SocketMessageType.processUpdate,
-                data: {
-                    message: JSON.stringify(payload),
                 },
             });
         });
@@ -315,20 +270,9 @@ export class Socket {
         };
     }
 
-    // INFO: we use any here because auth in socket is also any
-    // eslint-disable-next-line
-    public extendConnectionInfo(info: { [key: string]: any }) {
-        const inst = this.getInstance();
-
-        inst.auth = {
-            ...inst.auth,
-            ...info,
-        };
-    }
-
     private getInstance() {
         if (this.instance === null) {
-            throw new Error("[TBD] Socket wasn't initialized");
+            throw new Error("Veeam Intelligence Socket connection wasn't initialized");
         }
 
         return this.instance;

@@ -84,3 +84,34 @@ docker rmi veeam-mcp || true
    ```
 
 2. Restart Claude Desktop to apply the changes.
+
+## Usage with VS Code
+
+To use this MCP server with GitHub Copilot in VS Code, you need to create a `.vscode/mcp.json` file in your workspace:
+
+1. Create a `.vscode` directory in your workspace if it doesn't exist:
+   ```bash
+   mkdir -p .vscode
+   ```
+
+2. Create a `.vscode/mcp.json` file with the following configuration:
+
+   ```json
+   {
+     "mcpServers": {
+       "veeam-intelligence": {
+         "command": "docker",
+         "args": [
+           "run",
+           "-i",
+           "--rm",
+           "veeam-mcp"
+         ]
+       }
+     }
+   }
+   ```
+
+3. Restart VS Code or reload the window for the changes to take effect.
+
+4. The Veeam Intelligence MCP server will now be available in GitHub Copilot chat within VS Code.

@@ -3,5 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-export { Socket } from './Socket';
-export * from './types';
+export { VbrClient } from './VbrClient';
+export { VoneClient } from './VoneClient';
+export { VspcClient } from './VspcClient';
+export * from '../types';
