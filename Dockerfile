@@ -25,7 +25,6 @@ WORKDIR /app
 # Copy built files from builder
 COPY --from=builder /app/build ./build
 COPY --from=builder /app/package*.json ./
-COPY .env ./
 
 # Install production dependencies only
 RUN npm ci --only=production

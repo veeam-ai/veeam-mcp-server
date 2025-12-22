@@ -6,11 +6,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { config } from 'dotenv';
 import { answerQuestion } from './tools';
-
-// Load environment variables from .env file
-config();
 
 // Create an MCP server
 const server = new McpServer({
