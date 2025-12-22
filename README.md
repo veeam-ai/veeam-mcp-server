@@ -15,20 +15,18 @@ This project provides a Veeam Intelligence MCP server that integrates with any M
 ## Setup
 
 1. Clone the repository:
-   ```bash
-   git clone <repository-url>
-   cd veeam-mcp
-   ```
+  ```bash
+  git clone <repository-url>
+  cd veeam-mcp
+  ```
 
-2. Configure environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-   Edit the `.env` file and fill in your Veeam One server details:
-   - `PRODUCT_NAME`: The name of Veeam product from [vbr, vone, vspc]
-   - `WEB_URL`: URL of your Veeam One server, for example https://veeamone-srv:1239/
-   - `ADMIN_USERNAME`: Veeam One administrator username, for example: domain\\username
-   - `ADMIN_PASSWORD`: Administrator password
+2. Gather the credentials and connection details that will be injected when launching the Docker container (no `.env` file is used anymore):
+  - `PRODUCT_NAME`: The name of the Veeam product `[vbr | vone | vspc]`
+  - `WEB_URL`: URL of your Veeam One server, for example https://veeamone-srv:1239/
+  - `ADMIN_USERNAME`: Veeam One administrator username, for example username
+  - `ADMIN_PASSWORD`: Administrator password
+
+  You will paste these values directly into the VS Code or Claude Desktop MCP configuration so they are provided to the container via `docker run -e VARIABLE_NAME` plus an `env` block that holds the actual secrets.
 
 ## Build
 
@@ -56,10 +54,10 @@ docker rmi veeam-mcp || true
 
 ## Security Warning
 
-⚠️ **Important Security Notice**: The Docker image built from this repository will contain the `.env` file with your Veeam One administrator credentials. For security reasons:
+⚠️ **Important Security Notice**: Your Veeam One administrator credentials now live inside your local MCP configuration (VS Code or Claude Desktop). For security reasons:
 
+- Never commit or share your MCP configuration files if they contain secrets
 - Never push the built Docker image to a public registry
-- Never share the Docker image with untrusted parties
 - Always build the image locally on the machine where it will be used
 
 ## Usage with Claude Desktop
@@ -76,12 +74,26 @@ docker rmi veeam-mcp || true
            "run",
            "-i",
            "--rm",
+           "-e", "PRODUCT_NAME",
+           "-e", "WEB_URL",
+           "-e", "ADMIN_USERNAME",
+           "-e", "ADMIN_PASSWORD",
+           "-e", "NODE_TLS_REJECT_UNAUTHORIZED",
            "veeam-mcp"
-         ]
+         ],
+         "env": {
+           "PRODUCT_NAME": "vone",
+           "WEB_URL": "https://veeamone-srv:1239/",
+           "ADMIN_USERNAME": "username",
+           "ADMIN_PASSWORD": "secret",
+           "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+         }
        }
      }
    }
    ```
+
+   Replace the placeholder values inside the `env` block with your own secrets.
 
 2. Restart Claude Desktop to apply the changes.
 
@@ -105,12 +117,26 @@ To use this MCP server with GitHub Copilot in VS Code, you need to create a `.vs
            "run",
            "-i",
            "--rm",
+           "-e", "PRODUCT_NAME",
+           "-e", "WEB_URL",
+           "-e", "ADMIN_USERNAME",
+           "-e", "ADMIN_PASSWORD",
+           "-e", "NODE_TLS_REJECT_UNAUTHORIZED",
            "veeam-mcp"
-         ]
+         ],
+         "env": {
+           "PRODUCT_NAME": "vone",
+           "WEB_URL": "https://veeamone-srv:1239/",
+           "ADMIN_USERNAME": "username",
+           "ADMIN_PASSWORD": "super-secret",
+           "NODE_TLS_REJECT_UNAUTHORIZED": "0"
+         }
        }
      }
    }
    ```
+
+   Replace the placeholder values within `env` with your actual credentials.
 
 3. Restart VS Code or reload the window for the changes to take effect.
 
