@@ -23,9 +23,8 @@ This project provides a Veeam Intelligence MCP server that integrates with any M
 2. Gather the credentials and connection details that will be injected when launching the Docker container (no `.env` file is used anymore):
   - `PRODUCT_NAME`: The name of the Veeam product `[vbr | vone | vspc]`
   - `WEB_URL`: URL of your Veeam One server, for example https://veeamone-srv:1239/
-  - `ADMIN_USERNAME`: Veeam One administrator username, for example domain\\username
+  - `ADMIN_USERNAME`: Veeam One administrator username, for example username
   - `ADMIN_PASSWORD`: Administrator password
-  - Optional hardening flags such as `NODE_ENV`, `NODE_TLS_REJECT_UNAUTHORIZED`, etc.
 
   You will paste these values directly into the VS Code or Claude Desktop MCP configuration so they are provided to the container via `docker run -e VARIABLE_NAME` plus an `env` block that holds the actual secrets.
 
