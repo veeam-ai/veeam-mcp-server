@@ -110,7 +110,7 @@ To use this MCP server with GitHub Copilot in VS Code, you need to create a `.vs
 
    ```json
    {
-     "mcpServers": {
+     "servers": {
        "veeam-intelligence": {
          "command": "docker",
          "args": [
