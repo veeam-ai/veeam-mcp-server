@@ -18,11 +18,17 @@ const server = new McpServer({
     version: '1.0.0',
 });
 
+const productName = process.env.PRODUCT_NAME?.trim() || 'Veeam product';
+const toolDescription =
+    `Use this tool whenever a request involves Veeam operational knowledge—health checks, alert triage, remediation steps, configuration advice, integrations, or runbooks—for ${productName}. ` +
+    'It returns authoritative Veeam product guidance backed by internal telemetry and documented procedures. ' +
+    'Preserve the user wording; forward questions verbatim so intent is not altered.';
+
 server.registerTool(
     'veeam-question-answering',
     {
         title: 'Veeam Intelligence Question Answering',
-        description: 'Tool to ask Veeam related questions',
+        description: toolDescription,
         inputSchema: {
             question: z.string().describe('Question to ask Veeam Intelligence'),
         },
