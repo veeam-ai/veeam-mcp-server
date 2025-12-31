@@ -1,7 +1,9 @@
 import * as esbuild from 'esbuild';
 
+const entryPoint = process.argv.includes('--debug') ? 'src/debug.ts' : 'src/index.ts';
+
 await esbuild.build({
-    entryPoints: ['src/index.ts'],
+    entryPoints: [entryPoint],
     bundle: true,
     platform: 'node',
     target: 'es2022',
@@ -16,4 +18,5 @@ await esbuild.build({
         'uuid'
     ],
     sourcemap: true,
+    sourcesContent: true,
 });

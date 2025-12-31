@@ -7,6 +7,7 @@
         "test": "echo \"Error: no test specified\" && exit 1",
         "dev": "node esbuild.config.js --watch",
         "build": "rm -rf build/ && node esbuild.config.js",
+        "build:debug": "rm -rf build/ && node esbuild.config.js --debug",
         "up": "docker compose up --build",
         "debug": "rm -rf build/ && node esbuild.config.js && node ./build/index.js",
         "mcp_inspector": "node esbuild.config.js && npx @modelcontextprotocol/inspector node ./build/index.js"
