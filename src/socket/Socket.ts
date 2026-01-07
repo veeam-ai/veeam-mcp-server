@@ -91,7 +91,7 @@ export class Socket {
             throw new Error("Veeam Intelligence Socket connection wasn't initialized");
         }
 
-        const subscription = this.subject.subscribe(async ({ data, type }) => {
+        const subscription = this.subject.subscribe(({ data, type }) => {
             switch (type) {
                 case SocketMessageType.chunk: {
                     handlers.onChunk(data);
@@ -142,7 +142,7 @@ export class Socket {
                     break;
                 }
                 default: {
-                    throw new Error(`Unknown Veeam Intelligence Socket message type captured: ${type}`);
+                    throw new Error(`Unknown Veeam Intelligence Socket message type captured: ${String(type)}`);
                 }
             }
         });

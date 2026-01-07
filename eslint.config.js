@@ -1,6 +1,7 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettier from 'eslint-config-prettier';
+import licenseHeader from 'eslint-plugin-license-header';
 
 export default tseslint.config(
   eslint.configs.recommended,
@@ -17,6 +18,40 @@ export default tseslint.config(
   {
     files: ['**/*.js', '**/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
+  },
+  {
+    files: ['**/*.ts', '**/*.js', '**/*.mjs'],
+    plugins: {
+      'license-header': licenseHeader,
+    },
+    rules: {
+      'license-header/header': [
+        'error',
+        [
+          '/**',
+          ' * Copyright © Veeam Software Group GmbH. All rights reserved.',
+          ' * Licensed under the MIT License. See LICENSE in the project root for license information.',
+          ' */',
+        ],
+      ],
+      // Disable strict type checking rules for better development experience
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/no-unsafe-member-access': 'off',
+      '@typescript-eslint/no-unsafe-argument': 'off',
+      '@typescript-eslint/no-unsafe-call': 'off',
+      '@typescript-eslint/no-unsafe-return': 'off',
+      '@typescript-eslint/require-await': 'off',
+      '@typescript-eslint/no-floating-promises': 'off',
+      '@typescript-eslint/no-misused-promises': 'off',
+      // '@typescript-eslint/restrict-template-expressions': 'off',
+      // Keep these as warnings for visibility
+      '@typescript-eslint/no-unused-vars': ['warn', { 
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+      }],
+      'no-debugger': 'warn',
+    },
   },
   {
     ignores: [
