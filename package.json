@@ -4,7 +4,9 @@
     "main": "index.js",
     "type": "module",
     "scripts": {
-        "test": "echo \"Error: no test specified\" && exit 1",
+        "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+        "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
+        "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
         "dev": "node esbuild.config.js --watch",
         "build": "rm -rf build/ && node esbuild.config.js",
         "build:debug": "rm -rf build/ && node esbuild.config.js --debug",
@@ -31,14 +33,18 @@
         "npm": ">=10.0.0"
     },
     "dependencies": {
-        "@modelcontextprotocol/sdk": "1.25.1",
+        "@modelcontextprotocol/sdk": "^1.25.2",
         "dotenv": "17.2.3",
         "rxjs": "7.8.2",
         "socket.io-client": "4.8.1",
         "uuid": "13.0.0"
     },
     "devDependencies": {
+        "@jest/globals": "^30.2.0",
+        "@types/jest": "^30.0.0",
         "esbuild": "0.27.2",
+        "jest": "^30.2.0",
+        "ts-jest": "^29.4.6",
         "ts-node": "10.9.2",
         "typescript": "5.9.3"
     }
