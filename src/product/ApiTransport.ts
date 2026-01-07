@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { mergeUrlParts } from "@/utils/url";
+import { mergeUrlParts } from '@/utils/url';
 
 interface AuthResponse {
     access_token: string;
@@ -33,9 +33,9 @@ export class ApiTransport {
     }
 
     private formatErrorCause(cause: any): string {
-        if (["ENOTFOUND", "ECONNREFUSED", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT"].includes(cause.code)) {
+        if (['ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'UND_ERR_CONNECT_TIMEOUT'].includes(cause.code)) {
             return `Network error: ${cause.code} ${cause.message || ''}. Validate that WEB_URL contains correct hostname and port for Rest API.`;
-        } else if (["DEPTH_ZERO_SELF_SIGNED_CERT", "CERT_HAS_EXPIRED", "UNABLE_TO_VERIFY_LEAF_SIGNATURE"].includes(cause.code)) {
+        } else if (['DEPTH_ZERO_SELF_SIGNED_CERT', 'CERT_HAS_EXPIRED', 'UNABLE_TO_VERIFY_LEAF_SIGNATURE'].includes(cause.code)) {
             return `SSL error: ${cause.code}. If Veeam product uses self signed certificate, try setting ACCEPT_SELF_SIGNED_CERT=true.`;
         } else if (cause.code) {
             return `Unexpected network error: ${cause.code}: ${cause.message || ''}`;
@@ -86,17 +86,17 @@ export class ApiTransport {
             this.tokenExpirationTime = Date.now() + data.expires_in * 1000;
         } catch (error: any) {
             console.error('Authentication failed:', error.message || error);
-            
+
             // Extract detailed error information
             let errorMessage = `Authentication failed: ${error.message}`;
-            
+
             // Include cause details if available
             if (error.cause) {
-                errorMessage += " " + this.formatErrorCause(error.cause);
-            } else if (error.message && error.message.toLowerCase().includes('authentication failed')) { 
-                errorMessage += " Please verify that ADMIN_USERNAME and ADMIN_PASSWORD are correct.";
+                errorMessage += ' ' + this.formatErrorCause(error.cause);
+            } else if (error.message && error.message.toLowerCase().includes('authentication failed')) {
+                errorMessage += ' Please verify that ADMIN_USERNAME and ADMIN_PASSWORD are correct.';
             }
-            
+
             throw new Error(errorMessage, { cause: error.cause });
         }
     }
@@ -117,9 +117,7 @@ export class ApiTransport {
         // Build full URL
         const normalizedUrl = (config.url || '').trim();
         const isAbsoluteUrl = /^https?:\/\//i.test(normalizedUrl);
-        let url = isAbsoluteUrl 
-            ? normalizedUrl 
-            : mergeUrlParts(this.config.baseURL, normalizedUrl);
+        let url = isAbsoluteUrl ? normalizedUrl : mergeUrlParts(this.config.baseURL, normalizedUrl);
 
         // Add query parameters if provided
         if (config.params) {
@@ -146,8 +144,7 @@ export class ApiTransport {
 
         // Add body if present
         if (config.data) {
-            options.body =
-                typeof config.data === 'string' ? config.data : JSON.stringify(config.data);
+            options.body = typeof config.data === 'string' ? config.data : JSON.stringify(config.data);
         }
 
         try {
@@ -163,9 +160,7 @@ export class ApiTransport {
                 const retryResponse = await fetch(url, { ...options, headers });
 
                 if (!retryResponse.ok) {
-                    throw new Error(
-                        `Request failed: ${retryResponse.status} ${retryResponse.statusText}`,
-                    );
+                    throw new Error(`Request failed: ${retryResponse.status} ${retryResponse.statusText}`);
                 }
 
                 return await retryResponse.json();
@@ -179,12 +174,12 @@ export class ApiTransport {
         } catch (error: any) {
             // Extract detailed error information
             let errorMessage = `Request failed: ${error.message}`;
-            
+
             // Include cause details if available
             if (error.cause) {
                 errorMessage += this.formatErrorCause(error.cause);
             }
-            
+
             throw new Error(errorMessage, { cause: error.cause });
         }
     }

@@ -39,10 +39,7 @@ export class Socket {
             }
 
             const now = new Date();
-            const socketHost = this.resolveSocketHost(
-                serviceInfo.chatbotApiUrl,
-                process.env.PRODUCT_NAME,
-            );
+            const socketHost = this.resolveSocketHost(serviceInfo.chatbotApiUrl, process.env.PRODUCT_NAME);
             const uri = this.resolveSocketURI(socketHost);
             const path = this.resolveSocketPath(socketHost, config.socketPath);
 
@@ -145,9 +142,7 @@ export class Socket {
                     break;
                 }
                 default: {
-                    throw new Error(
-                        `Unknown Veeam Intelligence Socket message type captured: ${type}`,
-                    );
+                    throw new Error(`Unknown Veeam Intelligence Socket message type captured: ${type}`);
                 }
             }
         });

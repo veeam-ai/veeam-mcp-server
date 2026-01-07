@@ -7,6 +7,10 @@
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
         "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
+        "lint": "eslint .",
+        "lint:fix": "eslint . --fix",
+        "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+        "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
         "dev": "node esbuild.config.js --watch",
         "build": "rm -rf build/ && node esbuild.config.js",
         "build:debug": "rm -rf build/ && node esbuild.config.js --debug",
@@ -40,12 +44,18 @@
         "uuid": "13.0.0"
     },
     "devDependencies": {
+        "@eslint/js": "^9.39.2",
         "@jest/globals": "^30.2.0",
+        "@types/eslint__js": "^8.42.3",
         "@types/jest": "^30.0.0",
         "esbuild": "0.27.2",
+        "eslint": "^9.39.2",
+        "eslint-config-prettier": "^10.1.8",
         "jest": "^30.2.0",
+        "prettier": "^3.7.4",
         "ts-jest": "^29.4.6",
         "ts-node": "10.9.2",
-        "typescript": "5.9.3"
+        "typescript": "5.9.3",
+        "typescript-eslint": "^8.52.0"
     }
 }

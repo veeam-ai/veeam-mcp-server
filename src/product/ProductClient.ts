@@ -10,15 +10,8 @@ export class ProductClient implements ProductApi {
     private client: ProductApi;
 
     constructor() {
-        if (
-            !process.env.PRODUCT_NAME ||
-            !process.env.WEB_URL ||
-            !process.env.ADMIN_USERNAME ||
-            !process.env.ADMIN_PASSWORD
-        ) {
-            throw new Error(
-                'Missing required environment variables: PRODUCT_NAME, WEB_URL, ADMIN_USERNAME, ADMIN_PASSWORD',
-            );
+        if (!process.env.PRODUCT_NAME || !process.env.WEB_URL || !process.env.ADMIN_USERNAME || !process.env.ADMIN_PASSWORD) {
+            throw new Error('Missing required environment variables: PRODUCT_NAME, WEB_URL, ADMIN_USERNAME, ADMIN_PASSWORD');
         }
 
         const baseURL = process.env.WEB_URL;
@@ -50,9 +43,7 @@ export class ProductClient implements ProductApi {
         return this.client.authenticate();
     }
 
-    async getToolCallData(
-        config: ToolInvocationConfig,
-    ): Promise<{ data: unknown; status: string }> {
+    async getToolCallData(config: ToolInvocationConfig): Promise<{ data: unknown; status: string }> {
         return this.client.getToolCallData(config);
     }
 }

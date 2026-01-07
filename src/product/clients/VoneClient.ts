@@ -35,10 +35,6 @@ export class VoneClient extends BaseProductClient {
             },
         };
 
-        return this.apiClient.post<AuthResult>(
-            '/api/v2.2/veeamintelligence/authenticate',
-            data,
-            config,
-        );
+        return this.apiClient.post<AuthResult>('/api/v2.2/veeamintelligence/authenticate', data, config);
     }
 }

@@ -35,10 +35,6 @@ export class VbrClient extends BaseProductClient {
             },
         };
 
-        return this.apiClient.post<AuthResult>(
-            '/private-api/v1/veeamintelligence/authenticate',
-            data,
-            config,
-        );
+        return this.apiClient.post<AuthResult>('/private-api/v1/veeamintelligence/authenticate', data, config);
     }
 }

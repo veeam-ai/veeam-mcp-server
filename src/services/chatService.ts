@@ -4,20 +4,8 @@
  */
 
 import { Socket } from '@/socket/Socket';
-import {
-    ServiceInfo,
-    AuthResponse,
-    Artifact,
-    ChatbotMode,
-    ToolInvocationConfig,
-    MessageRole,
-} from '@/common/types';
-import {
-    SocketEmitConfig,
-    SocketMessageData,
-    SocketSubscribeHandlers,
-    ResponseChunk,
-} from '@/socket/types';
+import { ServiceInfo, AuthResponse, Artifact, ChatbotMode, ToolInvocationConfig, MessageRole } from '@/common/types';
+import { SocketEmitConfig, SocketMessageData, SocketSubscribeHandlers, ResponseChunk } from '@/socket/types';
 import { ProductClient } from '@/product';
 import { ToolCallingError } from '@/common/errors';
 import { debug } from '@/common/debug';
@@ -164,11 +152,7 @@ export class ChatService implements SocketSubscribeHandlers {
         const config = JSON.parse(data.message) as ToolInvocationConfig;
 
         if (this.serviceInfo.chatbotMode === ChatbotMode.Base) {
-            this.emitToolResult(
-                config.invocation_id,
-                'error',
-                'Chatbot running in "Base" mode. Tool calls are restricted in this mode',
-            );
+            this.emitToolResult(config.invocation_id, 'error', 'Chatbot running in "Base" mode. Tool calls are restricted in this mode');
             return;
         }
 

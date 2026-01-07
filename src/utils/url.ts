@@ -4,8 +4,8 @@
  */
 
 export function mergeUrlParts(baseUrl: string, suffix: string): string {
-  const trimmedBaseUrl = baseUrl.replace(/\/+$/, '');
-  const trimmedSuffix = suffix.replace(/^\/+/, '');
-  
-  return `${trimmedBaseUrl}/${trimmedSuffix}`;
+    const trimmedBaseUrl = baseUrl.replace(/\/+$/, '');
+    const trimmedSuffix = suffix.replace(/^\/+/, '');
+
+    return `${trimmedBaseUrl}/${trimmedSuffix}`;
 }

@@ -15,7 +15,7 @@ export async function answerQuestion(question: string, log: (message: string) =>
         // Initialize Veeam Intelligence service
         log('Initializing Veeam Intelligence Service...');
         const chat: ChatService = new ChatService(client);
-        
+
         log('Connecting to service (authentication and service info retrieval)...');
         await chat.initialize();
 
@@ -23,10 +23,10 @@ export async function answerQuestion(question: string, log: (message: string) =>
         const { message, artifacts } = await chat.sendMessage(question);
         log('Answer: ' + message);
         log('Artifacts: ' + JSON.stringify(artifacts));
-        
+
         // Cleanup
         chat.disconnect();
-        
+
         return { message, artifacts };
     } catch (error: any) {
         const errorMessage = error?.message || String(error);

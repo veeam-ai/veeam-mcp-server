@@ -3,4 +3,4 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-export { answerQuestion } from "./answerQuestion";
+export { answerQuestion } from './answerQuestion';

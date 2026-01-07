@@ -24,9 +24,7 @@ export abstract class BaseProductClient implements ProductApi {
     abstract getServiceInfo(): Promise<ServiceInfo>;
     abstract authenticate(): Promise<AuthResult>;
 
-    async getToolCallData(
-        config: ToolInvocationConfig,
-    ): Promise<{ data: unknown; status: string }> {
+    async getToolCallData(config: ToolInvocationConfig): Promise<{ data: unknown; status: string }> {
         const cfg = config;
         switch (config.tool_name) {
             case 'fetch_data_from_endpoint': {
@@ -49,9 +47,7 @@ export abstract class BaseProductClient implements ProductApi {
 
                     throw new ToolCallingError(
                         err.response?.data || {
-                            message: `Failed to fetch data from endpoint: ${
-                                err.message || 'Unknown error'
-                            }`,
+                            message: `Failed to fetch data from endpoint: ${err.message || 'Unknown error'}`,
                         },
                     );
                 }

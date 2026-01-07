@@ -7,35 +7,35 @@ import { describe, it, expect } from '@jest/globals';
 import { mergeUrlParts } from '../url';
 
 describe('url utilities', () => {
-  describe('mergeUrlParts', () => {
-    it('should merge base URL and suffix with single slash', () => {
-      const result = mergeUrlParts('https://example.com', 'api/v1');
-      expect(result).toBe('https://example.com/api/v1');
-    });
+    describe('mergeUrlParts', () => {
+        it('should merge base URL and suffix with single slash', () => {
+            const result = mergeUrlParts('https://example.com', 'api/v1');
+            expect(result).toBe('https://example.com/api/v1');
+        });
 
-    it('should keep single slash', () => {
-      const result = mergeUrlParts('https://example.com/', 'api/v1');
-      expect(result).toBe('https://example.com/api/v1');
-    });
+        it('should keep single slash', () => {
+            const result = mergeUrlParts('https://example.com/', 'api/v1');
+            expect(result).toBe('https://example.com/api/v1');
+        });
 
-    it('should keep single slash', () => {
-      const result = mergeUrlParts('https://example.com', '/api/v1');
-      expect(result).toBe('https://example.com/api/v1');
-    });
+        it('should keep single slash', () => {
+            const result = mergeUrlParts('https://example.com', '/api/v1');
+            expect(result).toBe('https://example.com/api/v1');
+        });
 
-    it('should keep single slash', () => {
-      const result = mergeUrlParts('https://example.com/', '/api/v1');
-      expect(result).toBe('https://example.com/api/v1');
-    });
+        it('should keep single slash', () => {
+            const result = mergeUrlParts('https://example.com/', '/api/v1');
+            expect(result).toBe('https://example.com/api/v1');
+        });
 
-    it('should remove multiple slashes from base URL', () => {
-      const result = mergeUrlParts('https://example.com///', 'api/v1');
-      expect(result).toBe('https://example.com/api/v1');
-    });
+        it('should remove multiple slashes from base URL', () => {
+            const result = mergeUrlParts('https://example.com///', 'api/v1');
+            expect(result).toBe('https://example.com/api/v1');
+        });
 
-    it('should remove multiple slashes from base URL', () => {
-      const result = mergeUrlParts('https://example.com', '///api/v1');
-      expect(result).toBe('https://example.com/api/v1');
+        it('should remove multiple slashes from base URL', () => {
+            const result = mergeUrlParts('https://example.com', '///api/v1');
+            expect(result).toBe('https://example.com/api/v1');
+        });
     });
-  });
 });
