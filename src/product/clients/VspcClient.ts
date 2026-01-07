@@ -6,12 +6,13 @@
 import { BaseProductClient } from '@/product/BaseProductClient';
 import { ServiceInfo, AuthResult } from '@/common/types';
 import { AuthRequestConfig } from './types';
+import { mergeUrlParts } from '@/utils/url';
 
 const VSPC_VI_PLUGIN_ID = 'acfa09fe128645f09cd5b794d9d183d0';
 
 export class VspcClient extends BaseProductClient {
     constructor(baseURL: string, username: string, password: string) {
-        super(baseURL, username, password, `${baseURL}/api/v3/token`);
+        super(baseURL, username, password, mergeUrlParts(baseURL, '/api/v3/token'));
     }
 
     async getServiceInfo(): Promise<ServiceInfo> {

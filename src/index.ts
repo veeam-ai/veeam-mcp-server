@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { answerQuestion } from './tools';
 
 if (process.env.ACCEPT_SELF_SIGNED_CERT === 'true') {
-  process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
+    process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 }
 
 // Create an MCP server

@@ -6,10 +6,11 @@
 import { BaseProductClient } from '@/product/BaseProductClient';
 import { ServiceInfo, AuthResult } from '@/common/types';
 import { AuthRequestConfig } from './types';
+import { mergeUrlParts } from '@/utils/url';
 
 export class VoneClient extends BaseProductClient {
     constructor(baseURL: string, username: string, password: string) {
-        super(baseURL, username, password, `${baseURL}/api/token`);
+        super(baseURL, username, password, mergeUrlParts(baseURL, '/api/token'));
     }
 
     async getServiceInfo(): Promise<ServiceInfo> {

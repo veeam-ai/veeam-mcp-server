@@ -37,7 +37,7 @@ export class ProductClient implements ProductApi {
                 break;
             default:
                 throw new Error(
-                    'Unknown or missing PRODUCT_NAME environment variable. Supported values: vone, vspc, vbr',
+                    'MCP server configuration error. Unknown or missing PRODUCT_NAME environment variable. Supported values: vone (Veeam One), vspc (Veeam Service Provider Console), vbr (Veeam Backup & Replication). Verify mcp server configuration.',
                 );
         }
     }

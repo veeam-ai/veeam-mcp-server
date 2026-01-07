@@ -28,7 +28,8 @@ export async function answerQuestion(question: string, log: (message: string) =>
         chat.disconnect();
         
         return { message, artifacts };
-    } catch (error) {
-        throw new Error(`Error occurred: ${error}`);
+    } catch (error: any) {
+        const errorMessage = error?.message || String(error);
+        throw new Error(`Error occurred: ${errorMessage}`, { cause: error.cause });
     }
 }
