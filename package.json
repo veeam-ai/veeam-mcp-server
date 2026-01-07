@@ -11,6 +11,8 @@
         "lint:fix": "eslint . --fix",
         "format": "prettier --write \"src/**/*.{ts,js,json}\"",
         "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
+        "copyright:check": "node scripts/add-headers.js --check",
+        "copyright:fix": "node scripts/add-headers.js",
         "dev": "node esbuild.config.js --watch",
         "build": "rm -rf build/ && node esbuild.config.js",
         "build:debug": "rm -rf build/ && node esbuild.config.js --debug",
