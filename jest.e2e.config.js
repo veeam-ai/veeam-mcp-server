@@ -15,20 +15,9 @@ export default {
     ],
   },
   testMatch: [
-    '**/__tests__/**/*.test.ts',
-    '**/?(*.)+(spec|test).ts',
+    '**/__tests__/e2e/**/*.e2e.test.ts',
   ],
-  testPathIgnorePatterns: [
-    '/node_modules/',
-    '/__tests__/e2e/', // Ignore e2e tests in regular test runs
-  ],
-  collectCoverageFrom: [
-    'src/**/*.ts',
-    '!src/**/*.d.ts',
-    '!src/**/index.ts',
-  ],
-  coverageDirectory: 'coverage',
-  coverageReporters: ['text', 'lcov', 'html'],
   roots: ['<rootDir>/src'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  testTimeout: 60000, // 60 seconds default timeout for e2e tests
 };
