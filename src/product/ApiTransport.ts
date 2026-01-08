@@ -3,6 +3,8 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
+import axios, { AxiosInstance } from 'axios';
+import https from 'node:https';
 import { mergeUrlParts } from '@/utils/url';
 
 interface AuthResponse {
@@ -27,9 +29,19 @@ export class ApiTransport {
     private accessToken: string | null = null;
     private tokenExpirationTime: number | null = null;
     private readonly config: ApiClientConfig;
+    private readonly client: AxiosInstance;
 
     constructor(config: ApiClientConfig) {
         this.config = config;
+        
+        const acceptSelfSignedCert = process.env.ACCEPT_SELF_SIGNED_CERT === 'true';
+        const httpsAgent = new https.Agent({
+            rejectUnauthorized: !acceptSelfSignedCert,
+        });
+        
+        this.client = axios.create({
+            httpsAgent,
+        });
     }
 
     private formatErrorCause(cause: any): string {
@@ -62,26 +74,13 @@ export class ApiTransport {
 
             const authUrl = this.config.authUrl;
 
-            const response = await fetch(authUrl, {
-                method: 'POST',
+            const response = await this.client.post<AuthResponse>(authUrl, authData.toString(), {
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: authData,
             });
 
-            if (!response.ok) {
-                const errorData = await response.text();
-                console.error('Authentication failed with status:', response.status);
-                console.error('Response data:', errorData);
-                throw new Error(`Authentication failed: ${response.status} ${response.statusText}`);
-            }
-
-            const responseText = await response.text();
-            if (!responseText) {
-                throw new Error(`Empty response from authentication endpoint ${authUrl}`);
-            }
-            const data: AuthResponse = JSON.parse(responseText);
+            const data = response.data;
             this.accessToken = data.access_token;
             this.tokenExpirationTime = Date.now() + data.expires_in * 1000;
         } catch (error: any) {
@@ -93,6 +92,8 @@ export class ApiTransport {
             // Include cause details if available
             if (error.cause) {
                 errorMessage += ' ' + this.formatErrorCause(error.cause);
+            } else if (error.response) {
+                errorMessage += ` ${error.response.status} ${error.response.statusText}`;
             } else if (error.message && error.message.toLowerCase().includes('authentication failed')) {
                 errorMessage += ' Please verify that ADMIN_USERNAME and ADMIN_PASSWORD are correct.';
             }
@@ -117,13 +118,7 @@ export class ApiTransport {
         // Build full URL
         const normalizedUrl = (config.url || '').trim();
         const isAbsoluteUrl = /^https?:\/\//i.test(normalizedUrl);
-        let url = isAbsoluteUrl ? normalizedUrl : mergeUrlParts(this.config.baseURL, normalizedUrl);
-
-        // Add query parameters if provided
-        if (config.params) {
-            const searchParams = new URLSearchParams(config.params);
-            url += `?${searchParams.toString()}`;
-        }
+        const url = isAbsoluteUrl ? normalizedUrl : mergeUrlParts(this.config.baseURL, normalizedUrl);
 
         // Build headers
         const headers: Record<string, string> = {
@@ -136,48 +131,43 @@ export class ApiTransport {
             headers['Authorization'] = `Bearer ${this.accessToken}`;
         }
 
-        // Build request options
-        const options: RequestInit = {
-            method: config.method,
-            headers,
-        };
-
-        // Add body if present
-        if (config.data) {
-            options.body = typeof config.data === 'string' ? config.data : JSON.stringify(config.data);
-        }
-
         try {
-            const response = await fetch(url, options);
+            const response = await this.client.request<T>({
+                method: config.method,
+                url,
+                data: config.data,
+                headers,
+                params: config.params,
+            });
 
+            return response.data;
+        } catch (error: any) {
             // Handle 401 - retry with new token
-            if (response.status === 401) {
+            if (error.response?.status === 401) {
                 await this.authenticate();
                 // Update headers with new token
                 if (this.accessToken) {
                     headers['Authorization'] = `Bearer ${this.accessToken}`;
                 }
-                const retryResponse = await fetch(url, { ...options, headers });
+                const retryResponse = await this.client.request<T>({
+                    method: config.method,
+                    url,
+                    data: config.data,
+                    headers,
+                    params: config.params,
+                });
 
-                if (!retryResponse.ok) {
-                    throw new Error(`Request failed: ${retryResponse.status} ${retryResponse.statusText}`);
-                }
-
-                return await retryResponse.json();
+                return retryResponse.data;
             }
 
-            if (!response.ok) {
-                throw new Error(`Request failed: ${response.status} ${response.statusText}`);
-            }
-
-            return await response.json();
-        } catch (error: any) {
             // Extract detailed error information
             let errorMessage = `Request failed: ${error.message}`;
 
             // Include cause details if available
             if (error.cause) {
                 errorMessage += this.formatErrorCause(error.cause);
+            } else if (error.response) {
+                errorMessage = `Request failed: ${error.response.status} ${error.response.statusText}`;
             }
 
             throw new Error(errorMessage, { cause: error.cause });
