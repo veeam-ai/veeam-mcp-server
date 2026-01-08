@@ -19,5 +19,4 @@ export default {
   ],
   roots: ['<rootDir>/src'],
   moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
-  testTimeout: 60000, // 60 seconds default timeout for e2e tests
 };

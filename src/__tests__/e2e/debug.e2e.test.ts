@@ -31,5 +31,5 @@ describe('E2E: Validate answer test question', () => {
 
         console.log('Test completed successfully');
         console.log('Answer:', result);
-    }, 60000); // 60 second timeout for the test
+    });
 });

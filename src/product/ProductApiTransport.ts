@@ -25,7 +25,7 @@ interface RequestConfig {
     params?: Record<string, string>;
 }
 
-export class ApiTransport {
+export class ProductApiTransport {
     private accessToken: string | null = null;
     private tokenExpirationTime: number | null = null;
     private readonly config: ApiClientConfig;

@@ -14,7 +14,7 @@ export class VoneClient extends BaseProductClient {
     }
 
     async getServiceInfo(): Promise<ServiceInfo> {
-        return this.apiClient.get<ServiceInfo>('/api/v2.2/veeamintelligence/serviceInfo');
+        return this.productApiTransport.get<ServiceInfo>('/api/v2.2/veeamintelligence/serviceInfo');
     }
 
     async authenticate(): Promise<AuthResult> {
@@ -35,6 +35,6 @@ export class VoneClient extends BaseProductClient {
             },
         };
 
-        return this.apiClient.post<AuthResult>('/api/v2.2/veeamintelligence/authenticate', data, config);
+        return this.productApiTransport.post<AuthResult>('/api/v2.2/veeamintelligence/authenticate', data, config);
     }
 }

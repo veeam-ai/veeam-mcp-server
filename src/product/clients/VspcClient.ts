@@ -16,7 +16,7 @@ export class VspcClient extends BaseProductClient {
     }
 
     async getServiceInfo(): Promise<ServiceInfo> {
-        const response = await this.apiClient.get<any>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/serviceInfo`);
+        const response = await this.productApiTransport.get<any>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/serviceInfo`);
         if (response.chatBotApiUrl && !response.chatbotApiUrl) {
             response.chatbotApiUrl = response.chatBotApiUrl;
             delete response.chatBotApiUrl;
@@ -42,6 +42,6 @@ export class VspcClient extends BaseProductClient {
             },
         };
 
-        return this.apiClient.post<AuthResult>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/authenticate`, data, config);
+        return this.productApiTransport.post<AuthResult>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/authenticate`, data, config);
     }
 }

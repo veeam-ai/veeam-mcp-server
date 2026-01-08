@@ -14,7 +14,7 @@ export class VbrClient extends BaseProductClient {
     }
 
     async getServiceInfo(): Promise<ServiceInfo> {
-        return this.apiClient.get<ServiceInfo>('/private-api/v1/veeamintelligence/serviceInfo');
+        return this.productApiTransport.get<ServiceInfo>('/private-api/v1/veeamintelligence/serviceInfo');
     }
 
     async authenticate(): Promise<AuthResult> {
@@ -35,6 +35,6 @@ export class VbrClient extends BaseProductClient {
             },
         };
 
-        return this.apiClient.post<AuthResult>('/private-api/v1/veeamintelligence/authenticate', data, config);
+        return this.productApiTransport.post<AuthResult>('/private-api/v1/veeamintelligence/authenticate', data, config);
     }
 }

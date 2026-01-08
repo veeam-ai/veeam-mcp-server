@@ -7,6 +7,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 import { answerQuestion } from './tools';
+import { createTool } from './mcp/toolFactory';
 
 // Create an MCP server
 const server = new McpServer({
@@ -14,18 +15,13 @@ const server = new McpServer({
     version: '1.0.0',
 });
 
-const productName = process.env.PRODUCT_NAME?.trim() || 'Veeam product';
-const toolDescription =
-    `Use this tool whenever a request involves Veeam operational knowledge—health checks, alert triage, remediation steps, configuration advice, integrations, or runbooks—for ${productName}. ` +
-    'It returns authoritative Veeam product guidance backed by internal telemetry and documented procedures. ' +
-    'Preserve the user wording; forward questions verbatim so intent is not altered. ' +
-    'Responses arrive as JSON with top-level "message" and "artifacts" fields; when an artifact has type "dataframe" treat it as tabular output and render it as a table.';
+const toolConfig = await createTool();
 
 server.registerTool(
     'veeam-question-answering',
     {
-        title: 'Veeam Intelligence Question Answering',
-        description: toolDescription,
+        title: toolConfig.title,
+        description: toolConfig.description,
         inputSchema: {
             question: z.string().describe('Question to ask Veeam Intelligence'),
         },

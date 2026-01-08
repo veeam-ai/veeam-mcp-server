@@ -5,7 +5,7 @@
 
 import { ServiceInfo, AuthResult, ToolInvocationConfig } from '../common/types';
 
-export interface ProductApi {
+export interface ProductClient {
     getServiceInfo(): Promise<ServiceInfo>;
     authenticate(): Promise<AuthResult>;
     getToolCallData(config: ToolInvocationConfig): Promise<{ data: unknown; status: string }>;

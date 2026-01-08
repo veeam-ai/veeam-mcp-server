@@ -20,7 +20,7 @@ export default {
   ],
   testPathIgnorePatterns: [
     '/node_modules/',
-    '/__tests__/e2e/', // Ignore e2e tests in regular test runs
+    '/__tests__/e2e/',
   ],
   collectCoverageFrom: [
     'src/**/*.ts',

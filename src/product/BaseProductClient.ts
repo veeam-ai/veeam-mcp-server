@@ -3,17 +3,17 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { ApiTransport } from '@/product/ApiTransport';
-import { ProductApi } from './types';
+import { ProductApiTransport } from '@/product/ProductApiTransport';
+import { ProductClient as ProductClient } from './types';
 import { ServiceInfo, AuthResult, ToolInvocationConfig } from '@/common/types';
 import { ToolCallingError } from '@/common/errors';
 import { createSortFindParams } from '@/utils';
 
-export abstract class BaseProductClient implements ProductApi {
-    protected apiClient: ApiTransport;
+export abstract class BaseProductClient implements ProductClient {
+    protected productApiTransport: ProductApiTransport;
 
     constructor(baseURL: string, username: string, password: string, authUrl: string) {
-        this.apiClient = new ApiTransport({
+        this.productApiTransport = new ProductApiTransport({
             baseURL,
             username,
             password,
@@ -36,7 +36,7 @@ export abstract class BaseProductClient implements ProductApi {
                 }
 
                 try {
-                    const response = await this.apiClient.get(url);
+                    const response = await this.productApiTransport.get(url);
                     return { data: response, status: 'success' };
                 } catch (err: any) {
                     if (err.response?.status === 404) {
