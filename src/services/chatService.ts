@@ -107,9 +107,9 @@ export class ChatService implements SocketSubscribeHandlers {
         }
     }
 
-    public async onConnected(_: SocketMessageData): Promise<void> { }
+    public async onConnected(_: SocketMessageData): Promise<void> {}
 
-    public async onConnectionError(_: SocketMessageData): Promise<void> { }
+    public async onConnectionError(_: SocketMessageData): Promise<void> {}
 
     public async onConnectionInfoError(_: SocketMessageData): Promise<void> {}
 
@@ -117,11 +117,11 @@ export class ChatService implements SocketSubscribeHandlers {
         this.messageComplete?.resolve();
     }
 
-    public async onReconnectError(_: SocketMessageData): Promise<void> { }
+    public async onReconnectError(_: SocketMessageData): Promise<void> {}
 
-    public async onReconnectFailed(_: SocketMessageData): Promise<void> { }
+    public async onReconnectFailed(_: SocketMessageData): Promise<void> {}
 
-    public async onResponseError(_: SocketMessageData): Promise<void> { }
+    public async onResponseError(_: SocketMessageData): Promise<void> {}
 
     public async onTokenInvalid(_: SocketMessageData): Promise<void> {
         const authResult = await this.productClient.authenticate();
@@ -152,7 +152,7 @@ export class ChatService implements SocketSubscribeHandlers {
         }
     }
 
-    public async onUnknownProduct(_: SocketMessageData): Promise<void> { }
+    public async onUnknownProduct(_: SocketMessageData): Promise<void> {}
 
     private emitToolResult(invocationId: string, status: string, data: unknown): void {
         this.socket.emit({

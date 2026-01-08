@@ -4,19 +4,17 @@
     "main": "index.js",
     "type": "module",
     "scripts": {
+        "build": "rm -rf build/ && node esbuild.config.js",
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",
         "test:coverage": "node --experimental-vm-modules node_modules/jest/bin/jest.js --coverage",
         "test:e2e": "node --experimental-vm-modules --env-file-if-exists=.env.test node_modules/jest/bin/jest.js --config jest.e2e.config.js",
         "lint": "eslint .",
         "lint:fix": "eslint . --fix",
-        "format": "prettier --write \"src/**/*.{ts,js,json}\"",
         "format:check": "prettier --check \"src/**/*.{ts,js,json}\"",
-        "dev": "node esbuild.config.js --watch",
-        "build": "rm -rf build/ && node esbuild.config.js",
-        "build:debug": "rm -rf build/ && node esbuild.config.js --debug",
-        "up": "docker compose up --build",
-        "debug": "rm -rf build/ && node esbuild.config.js && node ./build/index.js",
+        "format": "prettier --write \"src/**/*.{ts,js,json}\"",
+        "q": "npm run lint:fix && npm run format",
+        "q:check": "npm run lint && npm run format:check",
         "mcp_inspector": "node esbuild.config.js && npx @modelcontextprotocol/inspector node ./build/index.js"
     },
     "keywords": [

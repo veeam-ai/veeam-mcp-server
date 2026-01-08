@@ -4,6 +4,4 @@
 **/build
 **/lib
 
-/vdc/
-
 package-lock.json

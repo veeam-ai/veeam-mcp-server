@@ -33,12 +33,12 @@ export class ApiTransport {
 
     constructor(config: ApiClientConfig) {
         this.config = config;
-        
+
         const acceptSelfSignedCert = process.env.ACCEPT_SELF_SIGNED_CERT === 'true';
         const httpsAgent = new https.Agent({
             rejectUnauthorized: !acceptSelfSignedCert,
         });
-        
+
         this.client = axios.create({
             httpsAgent,
         });

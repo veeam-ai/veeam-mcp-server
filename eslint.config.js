@@ -20,6 +20,10 @@ export default tseslint.config(
     ...tseslint.configs.disableTypeChecked,
   },
   {
+    files: ['**/*.test.ts', '**/*.spec.ts'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+  {
     files: ['**/*.ts', '**/*.js', '**/*.mjs'],
     plugins: {
       'license-header': licenseHeader,
@@ -59,7 +63,6 @@ export default tseslint.config(
       '*.config.js',
       '*.config.mjs',
       'scripts/',
-      'src/**/__tests__/',
     ],
   }
 );
