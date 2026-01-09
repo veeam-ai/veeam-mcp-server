@@ -13,14 +13,6 @@ export enum ChatbotMode {
     Advanced = 'Advanced',
 }
 
-export const PRODUCT_NAMES = {
-    vbr: 'Veeam Backup & Replication',
-    vone: 'Veeam ONE',
-    vspc: 'Veeam Service Provider Console',
-} as const;
-
-export type ProductCode = keyof typeof PRODUCT_NAMES;
-
 export interface DataframeArtifact {
     id: string;
     type: 'dataframe';
@@ -39,16 +31,16 @@ export interface StringArtifact {
 
 export type Artifact = StringArtifact | DataframeArtifact;
 
-export interface AuthResponse {
+export interface ChatBotAuthResult {
     access_token: string;
     issued_unix_ts: number;
     ttl_sec: number;
     product_suffix: string;
 }
 
-export interface AuthResult {
+export interface ChatBotAuthResponse {
     source: 'Direct' | 'Cache';
-    response: AuthResponse;
+    response: ChatBotAuthResult;
 }
 
 export interface ServiceInfo {

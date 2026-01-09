@@ -3,10 +3,10 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { ServiceInfo, AuthResult, ToolInvocationConfig } from '@/common/types';
+import { ServiceInfo, ChatBotAuthResponse, ToolInvocationConfig } from '@/common/types';
 
 export interface ProductRestClient {
     getServiceInfo(): Promise<ServiceInfo>;
-    authenticateChatService(): Promise<AuthResult>;
+    authenticateChatService(): Promise<ChatBotAuthResponse>;
     getToolCallData(config: ToolInvocationConfig): Promise<{ data: unknown; status: string }>;
 }

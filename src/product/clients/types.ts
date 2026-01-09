@@ -14,9 +14,15 @@ export interface AuthRequestConfig {
     };
 }
 
-export interface AuthResponse {
+export interface ProductAuthResponse {
     access_token: string;
     expires_in: number;
+    token_type: 'Bearer';
+}
+
+export interface ProductAuthResponseUnifiedDate {
+    access_token: string;
+    valid_until: number;
     token_type: 'Bearer';
 }
 
@@ -24,7 +30,6 @@ export interface ProductRestClientConfig {
     baseURL: string;
     username: string;
     password: string;
-    authUrl: string;
     acceptSelfSignedCert: boolean;
 }
 

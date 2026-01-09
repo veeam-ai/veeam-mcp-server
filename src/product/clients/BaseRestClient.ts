@@ -4,8 +4,8 @@
  */
 
 import { ProductRestClient } from '../ProductRestClient';
-import { AuthResponse, ProductRestClientConfig, RequestConfig } from './types';
-import { ServiceInfo, AuthResult, ToolInvocationConfig } from '@/common/types';
+import { ProductAuthResponseUnifiedDate, ProductRestClientConfig, RequestConfig } from './types';
+import { ServiceInfo, ChatBotAuthResponse, ToolInvocationConfig } from '@/common/types';
 import { ToolCallingError } from '@/common/errors';
 import { createSortFindParams } from '@/utils';
 
@@ -33,7 +33,8 @@ export abstract class BaseRestClient implements ProductRestClient {
     }
 
     abstract getServiceInfo(): Promise<ServiceInfo>;
-    abstract authenticateChatService(): Promise<AuthResult>;
+    abstract authenticateChatService(): Promise<ChatBotAuthResponse>;
+    protected abstract authenticateProductRest(): Promise<ProductAuthResponseUnifiedDate>;
 
     async getToolCallData(config: ToolInvocationConfig): Promise<{ data: unknown; status: string }> {
         const cfg = config;
@@ -69,24 +70,6 @@ export abstract class BaseRestClient implements ProductRestClient {
                 });
             }
         }
-    }
-
-    protected async authenticateProductRest(config: ProductRestClientConfig): Promise<AuthResponse> {
-        const authData = new URLSearchParams();
-        authData.append('username', config.username);
-        authData.append('password', config.password);
-        authData.append('grant_type', 'password');
-
-        const authUrl = config.authUrl;
-
-        const response = await this.client.post<AuthResponse>(authUrl, authData.toString(), {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-        });
-
-        const data = response.data;
-        return data;
     }
 
     // Convenience methods for common HTTP verbs
@@ -182,9 +165,9 @@ export abstract class BaseRestClient implements ProductRestClient {
 
     private async authenticate(): Promise<void> {
         try {
-            const data = await this.authenticateProductRest(this.config);
+            const data = await this.authenticateProductRest();
             this.accessToken = data.access_token;
-            this.tokenExpirationTime = Date.now() + data.expires_in * 1000;
+            this.tokenExpirationTime = data.valid_until;
         } catch (error: any) {
             console.error('Authentication failed:', error.message || error);
 

@@ -4,7 +4,7 @@
  */
 
 import { Socket } from '@/socket/Socket';
-import { ServiceInfo, AuthResponse, Artifact, ChatbotMode, ToolInvocationConfig, MessageRole } from '@/common/types';
+import { ServiceInfo, ChatBotAuthResult, Artifact, ChatbotMode, ToolInvocationConfig, MessageRole } from '@/common/types';
 import { SocketEmitConfig, SocketMessageData, SocketSubscribeHandlers, ResponseChunk } from '@/socket/types';
 import { ProductRestClient } from '@/product';
 import { ToolCallingError } from '@/common/errors';
@@ -14,7 +14,7 @@ import { SendMessageResponse } from './types';
 export class ChatService implements SocketSubscribeHandlers {
     private socket: Socket;
     private serviceInfo!: ServiceInfo;
-    private authResponse!: AuthResponse;
+    private authResponse!: ChatBotAuthResult;
     private productRestClient: ProductRestClient;
     private message: string = '';
     private artifacts: Artifact[] = [];

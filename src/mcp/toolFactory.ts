@@ -3,8 +3,9 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { ChatbotMode, PRODUCT_NAMES } from '@/common/types';
-import { createProductRestClient, getProductCode } from '@/product/ProductClientFactory';
+import { ChatbotMode } from '@/common/types';
+import { createProductRestClient } from '@/product/ProductClientFactory';
+import { getProductName } from '@/config/settings';
 
 interface ToolConfig {
     title: string;
@@ -25,8 +26,7 @@ export async function createTool(): Promise<ToolConfig> {
 }
 
 function createBasicModeTool(): ToolConfig {
-    const productCode = getProductCode();
-    const productName = PRODUCT_NAMES[productCode];
+    const productName = getProductName();
 
     const basicModeToolDescription = `Use this tool whenever to answer question based on ${productName} documentation. To answer questions on product data, enable Advanced mode in the product settings.`;
 
@@ -37,8 +37,7 @@ function createBasicModeTool(): ToolConfig {
 }
 
 function createAdvancedModeTool(): ToolConfig {
-    const productCode = getProductCode();
-    const productName = PRODUCT_NAMES[productCode];
+    const productName = getProductName();
 
     const advancedModeToolDescription =
         `Use this tool whenever a request involves Veeam operational knowledge—health checks, alert triage, remediation steps, configuration advice, integrations, or runbooks—for ${productName}. ` +
