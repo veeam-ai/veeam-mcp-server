@@ -6,7 +6,7 @@
 import { Socket } from '@/socket/Socket';
 import { ServiceInfo, AuthResponse, Artifact, ChatbotMode, ToolInvocationConfig, MessageRole } from '@/common/types';
 import { SocketEmitConfig, SocketMessageData, SocketSubscribeHandlers, ResponseChunk } from '@/socket/types';
-import { ProductClient } from '@/product';
+import { ProductRestClient } from '@/product';
 import { ToolCallingError } from '@/common/errors';
 import { Deferred } from '@/utils';
 import { SendMessageResponse } from './types';
@@ -15,7 +15,7 @@ export class ChatService implements SocketSubscribeHandlers {
     private socket: Socket;
     private serviceInfo!: ServiceInfo;
     private authResponse!: AuthResponse;
-    private productClient: ProductClient;
+    private productRestClient: ProductRestClient;
     private message: string = '';
     private artifacts: Artifact[] = [];
 
@@ -23,14 +23,14 @@ export class ChatService implements SocketSubscribeHandlers {
     // until onDisconnected() resolves it, ensuring we've received all chunks before returning
     private messageComplete!: Deferred<void>;
 
-    constructor(productClient: ProductClient) {
-        this.productClient = productClient;
+    constructor(productRestClient: ProductRestClient) {
+        this.productRestClient = productRestClient;
         this.socket = new Socket();
     }
 
     public async initialize(): Promise<void> {
-        const serviceInfo = await this.productClient.getServiceInfo();
-        const authResult = await this.productClient.authenticateChatService();
+        const serviceInfo = await this.productRestClient.getServiceInfo();
+        const authResult = await this.productRestClient.authenticateChatService();
 
         this.serviceInfo = serviceInfo;
         this.authResponse = authResult.response;
@@ -124,13 +124,13 @@ export class ChatService implements SocketSubscribeHandlers {
     public async onResponseError(_: SocketMessageData): Promise<void> {}
 
     public async onTokenInvalid(_: SocketMessageData): Promise<void> {
-        const authResult = await this.productClient.authenticateChatService();
+        const authResult = await this.productRestClient.authenticateChatService();
         this.authResponse = authResult.response;
         this.socket.setAuthToken(this.authResponse.access_token);
     }
 
     public async onTokenRequired(_: SocketMessageData): Promise<void> {
-        const authResult = await this.productClient.authenticateChatService();
+        const authResult = await this.productRestClient.authenticateChatService();
         this.authResponse = authResult.response;
         this.socket.setAuthToken(this.authResponse.access_token);
     }
@@ -144,7 +144,7 @@ export class ChatService implements SocketSubscribeHandlers {
         }
 
         try {
-            const { data, status } = await this.productClient.getToolCallData(config);
+            const { data, status } = await this.productRestClient.getToolCallData(config);
             this.emitToolResult(config.invocation_id, status, data);
         } catch (err) {
             const error = err as ToolCallingError;

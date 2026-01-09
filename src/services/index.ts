@@ -4,4 +4,3 @@
  */
 
 export { ChatService } from './chatService';
-export * from './types';

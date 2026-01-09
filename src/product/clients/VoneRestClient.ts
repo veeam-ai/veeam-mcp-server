@@ -3,13 +3,13 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { BaseProductClient } from '@/product/BaseProductClient';
+import { BaseRestClient } from '@/product/clients/BaseRestClient';
 import { ServiceInfo, AuthResult } from '@/common/types';
-import { AuthRequestConfig } from './types';
+import { AuthRequestConfig, AuthResponse } from './types';
 
-export class VbrClient extends BaseProductClient {
+export class VoneRestClient extends BaseRestClient {
     async getServiceInfo(): Promise<ServiceInfo> {
-        return this.productApiTransport.get<ServiceInfo>('/private-api/v1/veeamintelligence/serviceInfo');
+        return this.get<ServiceInfo>('/api/v2.2/veeamintelligence/serviceInfo');
     }
 
     async authenticateChatService(): Promise<AuthResult> {
@@ -30,6 +30,10 @@ export class VbrClient extends BaseProductClient {
             },
         };
 
-        return this.productApiTransport.post<AuthResult>('/private-api/v1/veeamintelligence/authenticate', data, config);
+        return this.post<AuthResult>('/api/v2.2/veeamintelligence/authenticate', data, config);
+    }
+
+    protected override async authenticateProductRest(): Promise<AuthResponse> {
+        throw new Error('Method not implemented.');
     }
 }

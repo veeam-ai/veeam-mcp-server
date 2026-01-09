@@ -4,11 +4,24 @@
  */
 
 import { ChatbotMode, PRODUCT_NAMES } from '@/common/types';
-import { createProductClient, getProductCode } from '@/product/ProductClientFactory';
+import { createProductRestClient, getProductCode } from '@/product/ProductClientFactory';
 
 interface ToolConfig {
     title: string;
     description: string;
+}
+
+export async function createTool(): Promise<ToolConfig> {
+    const productRestClient = createProductRestClient();
+    const serviceInfo = await productRestClient.getServiceInfo();
+
+    if (serviceInfo.chatbotMode === ChatbotMode.Base) {
+        return createBasicModeTool();
+    } else if (serviceInfo.chatbotMode === ChatbotMode.Advanced) {
+        return createAdvancedModeTool();
+    } else {
+        throw new Error(`Unsupported chatbot mode: ${serviceInfo.chatbotMode as string}`);
+    }
 }
 
 function createBasicModeTool(): ToolConfig {
@@ -37,17 +50,4 @@ function createAdvancedModeTool(): ToolConfig {
         title: 'Answer Veeam Question',
         description: advancedModeToolDescription,
     };
-}
-
-export async function createTool(): Promise<ToolConfig> {
-    const productClient = createProductClient();
-    const serviceInfo = await productClient.getServiceInfo();
-
-    if (serviceInfo.chatbotMode === ChatbotMode.Base) {
-        return createBasicModeTool();
-    } else if (serviceInfo.chatbotMode === ChatbotMode.Advanced) {
-        return createAdvancedModeTool();
-    } else {
-        throw new Error(`Unsupported chatbot mode: ${serviceInfo.chatbotMode as string}`);
-    }
 }

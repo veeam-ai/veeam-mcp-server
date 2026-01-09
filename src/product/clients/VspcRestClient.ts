@@ -3,15 +3,15 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { BaseProductClient } from '@/product/BaseProductClient';
+import { BaseRestClient } from '@/product/clients/BaseRestClient';
 import { ServiceInfo, AuthResult } from '@/common/types';
 import { AuthRequestConfig } from './types';
 
 const VSPC_VI_PLUGIN_ID = 'acfa09fe128645f09cd5b794d9d183d0';
 
-export class VspcClient extends BaseProductClient {
+export class VspcRestClient extends BaseRestClient {
     async getServiceInfo(): Promise<ServiceInfo> {
-        const response = await this.productApiTransport.get<any>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/serviceInfo`);
+        const response = await this.get<any>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/serviceInfo`);
         if (response.chatBotApiUrl && !response.chatbotApiUrl) {
             response.chatbotApiUrl = response.chatBotApiUrl;
             delete response.chatBotApiUrl;
@@ -37,6 +37,6 @@ export class VspcClient extends BaseProductClient {
             },
         };
 
-        return this.productApiTransport.post<AuthResult>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/authenticate`, data, config);
+        return this.post<AuthResult>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/authenticate`, data, config);
     }
 }

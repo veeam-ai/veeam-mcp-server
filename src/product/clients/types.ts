@@ -13,3 +13,22 @@ export interface AuthRequestConfig {
         user_hash: string;
     };
 }
+
+export interface AuthResponse {
+    access_token: string;
+    expires_in: number;
+    token_type: 'Bearer';
+}
+
+export interface ProductRestClientConfig {
+    baseURL: string;
+    username: string;
+    password: string;
+    authUrl: string;
+    acceptSelfSignedCert: boolean;
+}
+
+export interface RequestConfig {
+    headers?: Record<string, string>;
+    params?: Record<string, string>;
+}

@@ -4,13 +4,13 @@
  */
 
 import { ChatService } from '@/services';
-import { createProductClient } from '@/product';
+import { createProductRestClient, ProductRestClient } from '@/product';
 
 export async function answerQuestion(question: string, log: (message: string) => void = () => {}) {
     try {
         // Initialize Veeam Product Client
         log('Initializing ProductClient...');
-        const client = createProductClient();
+        const client: ProductRestClient = createProductRestClient();
 
         // Initialize Veeam Intelligence service
         log('Initializing Veeam Intelligence Service...');

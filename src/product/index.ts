@@ -3,5 +3,5 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-export { createProductClient } from './ProductClientFactory';
-export { ProductClient } from './types';
+export { createProductRestClient } from './ProductClientFactory';
+export { ProductRestClient } from './ProductRestClient';

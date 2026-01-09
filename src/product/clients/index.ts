@@ -3,7 +3,6 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-export { VbrClient } from './VbrClient';
-export { VoneClient } from './VoneClient';
-export { VspcClient } from './VspcClient';
-export * from '../types';
+export { VbrRestClient } from './VbrRestClient';
+export { VoneRestClient } from './VoneRestClient';
+export { VspcRestClient } from './VspcRestClient';
