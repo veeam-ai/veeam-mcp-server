@@ -12,17 +12,12 @@ import { createSortFindParams } from '@/utils';
 export abstract class BaseProductClient implements ProductClient {
     protected productApiTransport: ProductApiTransport;
 
-    constructor(baseURL: string, username: string, password: string, authUrl: string) {
-        this.productApiTransport = new ProductApiTransport({
-            baseURL,
-            username,
-            password,
-            authUrl,
-        });
+    constructor(productApiTransport: ProductApiTransport) {
+        this.productApiTransport = productApiTransport;
     }
 
     abstract getServiceInfo(): Promise<ServiceInfo>;
-    abstract authenticate(): Promise<AuthResult>;
+    abstract authenticateChatService(): Promise<AuthResult>;
 
     async getToolCallData(config: ToolInvocationConfig): Promise<{ data: unknown; status: string }> {
         const cfg = config;

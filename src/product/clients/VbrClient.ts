@@ -6,18 +6,13 @@
 import { BaseProductClient } from '@/product/BaseProductClient';
 import { ServiceInfo, AuthResult } from '@/common/types';
 import { AuthRequestConfig } from './types';
-import { mergeUrlParts } from '@/utils/url';
 
 export class VbrClient extends BaseProductClient {
-    constructor(baseURL: string, username: string, password: string) {
-        super(baseURL, username, password, mergeUrlParts(baseURL, '/private-api/oauth2/token'));
-    }
-
     async getServiceInfo(): Promise<ServiceInfo> {
         return this.productApiTransport.get<ServiceInfo>('/private-api/v1/veeamintelligence/serviceInfo');
     }
 
-    async authenticate(): Promise<AuthResult> {
+    async authenticateChatService(): Promise<AuthResult> {
         const data: AuthRequestConfig = {
             cachePolicy: 'ReturnFromCacheOrCreate',
             cacheTtlSec: 43200,

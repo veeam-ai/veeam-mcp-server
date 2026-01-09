@@ -13,7 +13,7 @@ interface AuthResponse {
     token_type: 'Bearer';
 }
 
-interface ApiClientConfig {
+export interface ProductApiTransportConfig {
     baseURL: string;
     username: string;
     password: string;
@@ -28,10 +28,10 @@ interface RequestConfig {
 export class ProductApiTransport {
     private accessToken: string | null = null;
     private tokenExpirationTime: number | null = null;
-    private readonly config: ApiClientConfig;
+    private readonly config: ProductApiTransportConfig;
     private readonly client: AxiosInstance;
 
-    constructor(config: ApiClientConfig) {
+    constructor(config: ProductApiTransportConfig) {
         this.config = config;
 
         const acceptSelfSignedCert = process.env.ACCEPT_SELF_SIGNED_CERT === 'true';
@@ -61,7 +61,7 @@ export class ProductApiTransport {
             return true;
         }
 
-        const bufferTimeMS = 14 * 60 * 1000;
+        const bufferTimeMS = 14 * 60 * 1000; // 14 minutes
         return Date.now() + bufferTimeMS >= this.tokenExpirationTime;
     }
 

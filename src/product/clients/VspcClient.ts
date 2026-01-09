@@ -6,15 +6,10 @@
 import { BaseProductClient } from '@/product/BaseProductClient';
 import { ServiceInfo, AuthResult } from '@/common/types';
 import { AuthRequestConfig } from './types';
-import { mergeUrlParts } from '@/utils/url';
 
 const VSPC_VI_PLUGIN_ID = 'acfa09fe128645f09cd5b794d9d183d0';
 
 export class VspcClient extends BaseProductClient {
-    constructor(baseURL: string, username: string, password: string) {
-        super(baseURL, username, password, mergeUrlParts(baseURL, '/api/v3/token'));
-    }
-
     async getServiceInfo(): Promise<ServiceInfo> {
         const response = await this.productApiTransport.get<any>(`plugins/${VSPC_VI_PLUGIN_ID}/api/v1/serviceInfo`);
         if (response.chatBotApiUrl && !response.chatbotApiUrl) {
@@ -24,7 +19,7 @@ export class VspcClient extends BaseProductClient {
         return response as ServiceInfo;
     }
 
-    async authenticate(): Promise<AuthResult> {
+    async authenticateChatService(): Promise<AuthResult> {
         const data: AuthRequestConfig = {
             cachePolicy: 'ReturnFromCacheOrCreate',
             cacheTtlSec: 43200,

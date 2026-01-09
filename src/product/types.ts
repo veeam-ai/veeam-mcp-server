@@ -7,6 +7,6 @@ import { ServiceInfo, AuthResult, ToolInvocationConfig } from '../common/types';
 
 export interface ProductClient {
     getServiceInfo(): Promise<ServiceInfo>;
-    authenticate(): Promise<AuthResult>;
+    authenticateChatService(): Promise<AuthResult>;
     getToolCallData(config: ToolInvocationConfig): Promise<{ data: unknown; status: string }>;
 }

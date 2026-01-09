@@ -30,7 +30,7 @@ export class ChatService implements SocketSubscribeHandlers {
 
     public async initialize(): Promise<void> {
         const serviceInfo = await this.productClient.getServiceInfo();
-        const authResult = await this.productClient.authenticate();
+        const authResult = await this.productClient.authenticateChatService();
 
         this.serviceInfo = serviceInfo;
         this.authResponse = authResult.response;
@@ -124,13 +124,13 @@ export class ChatService implements SocketSubscribeHandlers {
     public async onResponseError(_: SocketMessageData): Promise<void> {}
 
     public async onTokenInvalid(_: SocketMessageData): Promise<void> {
-        const authResult = await this.productClient.authenticate();
+        const authResult = await this.productClient.authenticateChatService();
         this.authResponse = authResult.response;
         this.socket.setAuthToken(this.authResponse.access_token);
     }
 
     public async onTokenRequired(_: SocketMessageData): Promise<void> {
-        const authResult = await this.productClient.authenticate();
+        const authResult = await this.productClient.authenticateChatService();
         this.authResponse = authResult.response;
         this.socket.setAuthToken(this.authResponse.access_token);
     }
