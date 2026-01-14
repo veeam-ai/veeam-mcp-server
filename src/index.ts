@@ -14,7 +14,7 @@ const server = new McpServer({
     name: 'Veeam Intelligence',
     version: '1.0.0',
 });
-
+1
 const toolConfig = await createTool();
 
 server.registerTool(
