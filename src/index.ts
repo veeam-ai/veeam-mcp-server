@@ -8,6 +8,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod';
 import { answerQuestion } from './tools';
 import { createTool } from './mcp/toolFactory';
+import { ChatbotMode } from './common/types';
 
 // Create an MCP server
 const server = new McpServer({
@@ -28,14 +29,21 @@ server.registerTool(
         outputSchema: {
             message: z.string().describe('Answer from Veeam Intelligence'),
             artifacts: z.array(z.any()).describe('Artifacts from Veeam Intelligence'),
+            warning: z.string().optional().describe('Warning message if any'),
         },
     },
     async ({ question }) => {
         const answer = await answerQuestion(question);
+        const tool_response: { message: string; artifacts: any[]; warning?: string } = { ...answer };
+
+        if (toolConfig.mode === ChatbotMode.Base) {
+            tool_response.warning =
+                'IMPORTANT NOTE: Basic mode is active and answers are based on documentation only. If the user is asking questions about Veeam product data, suggest configuring advanced mode on the product.';
+        }
 
         return {
-            content: [{ type: 'text', text: JSON.stringify(answer) }],
-            structuredContent: answer,
+            content: [{ type: 'text', text: JSON.stringify(tool_response) }],
+            structuredContent: tool_response,
         };
     },
 );

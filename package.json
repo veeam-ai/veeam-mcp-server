@@ -4,6 +4,8 @@
     "main": "index.js",
     "type": "module",
     "scripts": {
+        "prestart": "npm ci",        
+        "start": "node build/index.js",
         "build": "rm -rf build/ && node esbuild.config.js",
         "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
         "test:watch": "node --experimental-vm-modules node_modules/jest/bin/jest.js --watch",

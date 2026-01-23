@@ -6,9 +6,9 @@ This project provides a Veeam Intelligence MCP server that integrates with any M
 
 - Either Docker or Node.js 24 installed on your system
 - One of Veeam products installed with an active non-community license
-  - Veeam One
-  - Veeam Backup and Replication
-  - Veeam Service Provider Console
+  - Veeam Backup and Replication (vbr)
+  - Veeam One (vone)
+  - Veeam Service Provider Console (vspc)
 
 ## Setup
 
@@ -23,12 +23,12 @@ This project provides a Veeam Intelligence MCP server that integrates with any M
 Collect the following credentials and connection details. These values will be injected when launching the Docker container:
 
 - `PRODUCT_NAME`: The name of the Veeam product (`vbr | vone | vspc`)
-- `WEB_URL`: The URL of your Veeam ONE server (for example, `https://veeamone-srv:1239/`)
+- `WEB_URL`: The URL of your Veeam server (example for VeeamOne `https://veeamone-srv:1239/`)
 - `ADMIN_USERNAME`: The Veeam product administrator username (for example, `.\\administrator`)
 - `ADMIN_PASSWORD`: The administrator password
-- `ACCEPT_SELF_SIGNED_CERT`: Set this to `true` if the Veeam product SSL certificate is not trusted (for example, `ACCEPT_SELF_SIGNED_CERT=true`)
+- `ACCEPT_SELF_SIGNED_CERT`: Set this to `true` if the Veeam product uses self-signed SSL certificate (for example, `ACCEPT_SELF_SIGNED_CERT=true`)
 
-Paste these values directly into the VS Code or Claude Desktop MCP configuration so they are passed to the container using `docker run -e VARIABLE_NAME`, along with an `env` block that contains the actual secrets.
+Paste these values directly into the VS Code or Claude Desktop MCP configuration so they are passed to the MCP process as environment variables.
 
 ## Option 1: using Docker
 ### 1. Build Docker image
@@ -42,17 +42,7 @@ make build
 docker build -t veeam-intelligence-mcp-server .
 ```
 
-To remove any previously built Docker images:
-
-```bash
-# Option 1: Using make
-make clean
-
-# Option 2: Using docker directly
-docker rmi veeam-intelligence-mcp-server || true 
-```
-
-### 2. Start MCP server
+### 2. Setup MCP client
 
 Setup your MCP client to start mcp server using STDIO transport.
 
