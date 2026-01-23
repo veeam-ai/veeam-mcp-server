@@ -12,6 +12,7 @@ import { createSortFindParams } from '@/utils';
 import axios, { AxiosInstance } from 'axios';
 import https from 'node:https';
 import { mergeUrlParts } from '@/utils/url';
+import safeStringify from '@/utils/safeStringify';
 
 export abstract class BaseRestClient implements ProductRestClient {
     protected readonly config: ProductRestClientConfig;
@@ -174,18 +175,10 @@ export abstract class BaseRestClient implements ProductRestClient {
             if (axios.isAxiosError(error)) {
                 const errorMessage =
                     'Axios error during authentication.\n' +
-                    JSON.stringify(
-                        {
-                            url: error.config?.url,
-                            method: error.config?.method,
-                            status: error.response?.status,
-                            statusText: error.response?.statusText,
-                            data: error.response?.data,
-                            message: error.message,
-                        },
-                        null,
-                        2,
-                    );
+                    `Request endpoint: ${error.config?.method} ${error.config?.url}\n` + 
+                    `Response status: ${error.response?.status} ${error.response?.statusText}\n` +
+                    `Response data: ${safeStringify(error.response?.data)}\n` +
+                    `Error message: ${error.message}`;
 
                 console.error(errorMessage);
                 throw new Error(errorMessage, { cause: error.cause });
