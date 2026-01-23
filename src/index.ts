@@ -19,7 +19,7 @@ const server = new McpServer({
 const toolConfig = await createTool();
 
 server.registerTool(
-    'veeam-question-answering',
+    'veeam-question-answering',sdf
     {
         title: toolConfig.title,
         description: toolConfig.description,
