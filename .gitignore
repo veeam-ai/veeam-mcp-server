@@ -23,7 +23,7 @@ dist/
 .DS_Store
 
 # Logs
-logs/
+logs/fgdf
 *.log
 
 # Coverage directory used by tools like istanbul
