@@ -175,7 +175,7 @@ export abstract class BaseRestClient implements ProductRestClient {
             if (axios.isAxiosError(error)) {
                 const errorMessage =
                     'Axios error during authentication.\n' +
-                    `Request endpoint: ${error.config?.method} ${error.config?.url}\n` + 
+                    `Request endpoint: ${error.config?.method} ${error.config?.url}\n` +
                     `Response status: ${error.response?.status} ${error.response?.statusText}\n` +
                     `Response data: ${safeStringify(error.response?.data)}\n` +
                     `Error message: ${error.message}`;
