@@ -23,15 +23,21 @@ This project provides a Veeam Intelligence MCP server that integrates with any M
 Collect the following credentials and connection details. These values will be injected when launching the Docker container:
 
 - `PRODUCT_NAME`: The name of the Veeam product (`vbr | vone | vspc`)
-- `WEB_URL`: The URL of your Veeam server (example for VeeamOne `https://veeamone-srv:1239/`)
+- `WEB_URL`: The URL of your Veeam server 
+```
+WEB_URL Examples
+Veeam Backup and Replication: `https://vbr-srv.local/`, default port 443
+Veeam One: `https://veeamone-srv.local:1239/`
+Veeam Service Provider Console: `https://vspc-srv.local:1280/`
+```
 - `ADMIN_USERNAME`: The Veeam product administrator username (for example, `.\\administrator`)
 - `ADMIN_PASSWORD`: The administrator password
 - `ACCEPT_SELF_SIGNED_CERT`: Set this to `true` if the Veeam product uses self-signed SSL certificate (for example, `ACCEPT_SELF_SIGNED_CERT=true`)
 
 Paste these values directly into the VS Code or Claude Desktop MCP configuration so they are passed to the MCP process as environment variables.
 
-## Option 1: using Docker
-### 1. Build Docker image
+### Option 1: Run using Docker
+#### 1. Build Docker image
 Before using the Veeam Intelligence MCP server, you need to build the Docker image:
 
 ```bash
@@ -42,16 +48,35 @@ make build
 docker build -t veeam-intelligence-mcp-server .
 ```
 
-### 2. Setup MCP client
+#### 2. Setup MCP client
 
 Setup your MCP client to start mcp server using STDIO transport.
-
-Example for Docker
 ```
 docker run -i --rm -e PRODUCT_NAME=vone -e WEB_URL=https://vone-server.local:1239/ -e ADMIN_USERNAME=.\\administrator -e ADMIN_PASSWORD=password -e ACCEPT_SELF_SIGNED_CERT=true veeam-intelligence-mcp-server
 ```
 
-## Usage with Claude Desktop
+### Option 2: Using npm
+Setup your MCP client to start mcp server using STDIO transport.
+
+#### Store secrets in .env file
+1. In MCP repository root, copy .env.example file to .env and populate values
+2. Configure MCP client to run server as follows
+```
+npm start --prefix ~/path/to/mcp/server
+```
+
+#### Alternatively, pass secrets in commandline
+```
+# On Mac/Linux
+PRODUCT_NAME=vone WEB_URL=https://vone-server.local:1239/ ADMIN_USERNAME=.\\administrator ADMIN_PASSWORD=password ACCEPT_SELF_SIGNED_CERT=true npm start --prefix ~/path/to/mcp/server
+
+# On Windows
+set PRODUCT_NAME=vone && set WEB_URL=https://vone-server.local:1239/ && set ADMIN_USERNAME=.\\administrator && set ADMIN_PASSWORD=password && set ACCEPT_SELF_SIGNED_CERT=true && npm start --prefix c:\\path\\to\\mcp\\server
+```
+
+# Example usage with popular MCP clients
+## Claude Desktop
+### Docker
 
 1. Add the Veeam Intelligence MCP server to your Claude Desktop configuration:
    Edit `claude_desktop_config.json` and add the following configuration:
