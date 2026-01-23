@@ -171,6 +171,26 @@ export abstract class BaseRestClient implements ProductRestClient {
         } catch (error: any) {
             console.error('Authentication failed:', error.message || error);
 
+            if (axios.isAxiosError(error)) {
+                const errorMessage =
+                    'Axios error during authentication.\n' +
+                    JSON.stringify(
+                        {
+                            url: error.config?.url,
+                            method: error.config?.method,
+                            status: error.response?.status,
+                            statusText: error.response?.statusText,
+                            data: error.response?.data,
+                            message: error.message,
+                        },
+                        null,
+                        2,
+                    );
+
+                console.error(errorMessage);
+                throw new Error(errorMessage, { cause: error.cause });
+            }
+
             // Extract detailed error information
             let errorMessage = `Authentication failed: ${error.message}`;
 
