@@ -29,6 +29,14 @@ COPY --from=builder /app/package*.json ./
 # Install production dependencies only
 RUN npm ci --only=production
 
+# Create a non-root user and change ownership
+RUN addgroup -g 1001 -S appgroup && \
+    adduser -u 1001 -S appuser -G appgroup && \
+    chown -R appuser:appgroup /app
+
+# Switch to non-root user
+USER appuser
+
 # Set environment variables
 ENV NODE_ENV=production
 
