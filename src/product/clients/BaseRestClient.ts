@@ -5,11 +5,10 @@
 
 import { ProductRestClient } from '../ProductRestClient';
 import { ProductAuthResponseUnifiedDate, ProductRestClientConfig, RequestConfig } from './types';
-import { ServiceInfo, ChatBotAuthResponse, ToolInvocationConfig } from '@/common/types';
-import { ToolCallingError } from '@/common/errors';
+import { ServiceInfo, ChatBotAuthResponse, CommonInvokeConfig, ToolCallResult } from '@/common/types';
 import { createSortFindParams } from '@/utils';
 
-import axios, { AxiosInstance } from 'axios';
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import https from 'node:https';
 import { mergeUrlParts } from '@/utils/url';
 import safeStringify from '@/utils/safeStringify';
@@ -37,39 +36,36 @@ export abstract class BaseRestClient implements ProductRestClient {
     abstract authenticateChatService(): Promise<ChatBotAuthResponse>;
     protected abstract authenticateProductRest(): Promise<ProductAuthResponseUnifiedDate>;
 
-    async getToolCallData(config: ToolInvocationConfig): Promise<{ data: unknown; status: string }> {
-        const cfg = config;
-        switch (config.tool_name) {
-            case 'fetch_data_from_endpoint': {
-                const query = createSortFindParams(config.parameters.query_params);
-                let url = config.parameters.endpoint_path;
+    async getToolCallData(config: CommonInvokeConfig): Promise<ToolCallResult> {
+        if (config.tool_name !== 'fetch_data_from_endpoint') {
+            return {
+                status: 'error',
+                data: { message: `Failed to provide Veeam Intelligence response. Unsupported client tool ${String(config.tool_name)}` },
+            };
+        }
 
-                if (query.size > 0) {
-                    url = `${url}?${query.toString()}`;
-                }
+        const { endpoint_path, query_params, method = 'GET', body, headers } = config.parameters;
+        const query = createSortFindParams(query_params ?? {});
+        let url = endpoint_path;
 
-                try {
-                    const response = await this.get(url);
-                    return { data: response, status: 'success' };
-                } catch (err: any) {
-                    if (err.response?.status === 404) {
-                        throw new ToolCallingError({
-                            message: `Failed to provide Veeam Intelligence response. URL ${config.parameters.endpoint_path} does not exist`,
-                        });
-                    }
+        if (query.size > 0) {
+            url = `${url}?${query.toString()}`;
+        }
 
-                    throw new ToolCallingError(
-                        err.response?.data || {
-                            message: `Failed to fetch data from endpoint: ${err.message || 'Unknown error'}`,
-                        },
-                    );
-                }
-            }
-            default: {
-                throw new ToolCallingError({
-                    message: `Failed to provide Veeam Intelligence response. Unable to load ${cfg.tool_name}`,
-                });
-            }
+        try {
+            // `body` arrives pre-serialised from Veeam Intelligence; send it verbatim.
+            const response = await this.requestRaw({ method, url, data: body, headers });
+            const ok = response.status >= 200 && response.status < 300;
+
+            return {
+                status: ok ? 'success' : 'error',
+                data: { status: response.status, body: response.data },
+            };
+        } catch (err: any) {
+            return {
+                status: 'error',
+                data: { message: `Failed to call ${method} ${endpoint_path}: ${err.message || 'Unknown error'}` },
+            };
         }
     }
 
@@ -82,14 +78,7 @@ export abstract class BaseRestClient implements ProductRestClient {
         return this.request<T>({ ...config, method: 'POST', url, data });
     }
 
-    // Generic request method with automatic token handling
-    private async request<T>(config: {
-        method: string;
-        url: string;
-        data?: any;
-        headers?: Record<string, string>;
-        params?: Record<string, string>;
-    }): Promise<T> {
+    private async prepareRequest(config: { url: string; headers?: Record<string, string> }) {
         // Ensure we have a valid token
         if (this.shouldRefreshToken()) {
             await this.authenticate();
@@ -106,10 +95,58 @@ export abstract class BaseRestClient implements ProductRestClient {
             ...config.headers,
         };
 
-        // Add auth token
+        this.applyAuthHeader(headers);
+
+        return { url, headers };
+    }
+
+    private applyAuthHeader(headers: Record<string, string>): void {
         if (this.accessToken) {
             headers['Authorization'] = `Bearer ${this.accessToken}`;
         }
+    }
+
+    /**
+     * Request that resolves for every HTTP status (only network/transport errors throw),
+     * with the same automatic token refresh and single 401 retry as `request`.
+     */
+    private async requestRaw(config: {
+        method: string;
+        url: string;
+        data?: any;
+        headers?: Record<string, string>;
+        params?: Record<string, string>;
+    }): Promise<AxiosResponse<unknown>> {
+        const { url, headers } = await this.prepareRequest(config);
+        const send = () =>
+            this.client.request<unknown>({
+                method: config.method,
+                url,
+                data: config.data,
+                headers,
+                params: config.params,
+                validateStatus: () => true,
+            });
+
+        const response = await send();
+        if (response.status !== 401) {
+            return response;
+        }
+
+        await this.authenticate();
+        this.applyAuthHeader(headers);
+        return send();
+    }
+
+    // Generic request method with automatic token handling
+    private async request<T>(config: {
+        method: string;
+        url: string;
+        data?: any;
+        headers?: Record<string, string>;
+        params?: Record<string, string>;
+    }): Promise<T> {
+        const { url, headers } = await this.prepareRequest(config);
 
         try {
             const response = await this.client.request<T>({
@@ -125,10 +162,7 @@ export abstract class BaseRestClient implements ProductRestClient {
             // Handle 401 - retry with new token
             if (error.response?.status === 401) {
                 await this.authenticate();
-                // Update headers with new token
-                if (this.accessToken) {
-                    headers['Authorization'] = `Bearer ${this.accessToken}`;
-                }
+                this.applyAuthHeader(headers);
                 const retryResponse = await this.client.request<T>({
                     method: config.method,
                     url,
@@ -150,7 +184,7 @@ export abstract class BaseRestClient implements ProductRestClient {
                 errorMessage = `Request failed: ${error.response.status} ${error.response.statusText}`;
             }
 
-            throw new Error(errorMessage, { cause: error.cause });
+            throw new Error(errorMessage, { cause: error });
         }
     }
 
@@ -181,7 +215,7 @@ export abstract class BaseRestClient implements ProductRestClient {
                     `Error message: ${error.message}`;
 
                 console.error(errorMessage);
-                throw new Error(errorMessage, { cause: error.cause });
+                throw new Error(errorMessage, { cause: error });
             }
 
             // Extract detailed error information
@@ -196,7 +230,7 @@ export abstract class BaseRestClient implements ProductRestClient {
                 errorMessage += ' Please verify that ADMIN_USERNAME and ADMIN_PASSWORD are correct.';
             }
 
-            throw new Error(errorMessage, { cause: error.cause });
+            throw new Error(errorMessage, { cause: error });
         }
     }
 

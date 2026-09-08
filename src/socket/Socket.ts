@@ -45,7 +45,7 @@ export class Socket {
 
             const auth: any = {
                 token: null,
-                mode: serviceInfo.chatbotMode,
+                mode: config.mode ?? serviceInfo.chatbotMode,
                 chat_id: this.chatId,
                 timezone_offset: now.getTimezoneOffset() * -1,
             };
