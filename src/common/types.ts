@@ -11,6 +11,13 @@ export enum MessageRole {
 export enum ChatbotMode {
     Base = 'Base',
     Advanced = 'Advanced',
+    /** VBR 13.1+: Advanced plus user-confirmed product actions proposed by Veeam Intelligence. */
+    AdvancedWithActions = 'AdvancedWithActions',
+}
+
+/** Advanced and AdvancedWithActions both grant Veeam Intelligence access to product REST data. */
+export function isAdvancedMode(mode: ChatbotMode): boolean {
+    return mode === ChatbotMode.Advanced || mode === ChatbotMode.AdvancedWithActions;
 }
 
 export interface DataframeArtifact {
@@ -49,24 +56,62 @@ export interface ServiceInfo {
     chatbotMode: ChatbotMode;
     productName: string;
     productVersion: string;
+    productPlatform?: string;
+    isAdvancedModeAllowed?: boolean;
     userRole?: string;
 }
+
+export type ToolCallHttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 interface BaseToolInvocationConfig {
     invocation_id: string;
 }
 
-interface CommonInvokeConfig extends BaseToolInvocationConfig {
+/**
+ * Veeam Intelligence asks the client to call a product REST endpoint. Reads are GET; actions
+ * (VBR 13.1+, AdvancedWithActions mode) arrive on the same envelope with a non-GET `method`,
+ * an optional pre-serialised JSON `body`, and an optional assistant-written `description`.
+ */
+export interface CommonInvokeConfig extends BaseToolInvocationConfig {
     tool_name: 'fetch_data_from_endpoint';
     parameters: {
         endpoint_path: string;
         query_params: Record<string, unknown>;
+        method?: ToolCallHttpMethod;
+        body?: string;
+        headers?: Record<string, string>;
+        description?: string;
     };
 }
 
-export type ToolInvocationConfig = CommonInvokeConfig;
+export type UserInteractionKind = 'confirmation' | 'singleSelect' | 'multiSelect' | 'treeSelect';
+
+/** Veeam Intelligence asks the user a question (confirmation / selection) as a client-side tool call. */
+export interface RequestUserInteractionConfig extends BaseToolInvocationConfig {
+    tool_name: 'request_user_interaction';
+    parameters: {
+        request_id?: string;
+        kind: UserInteractionKind;
+        label?: string;
+        title?: string;
+        description?: string;
+        options?: unknown[];
+        default_value?: unknown;
+        accept_custom_input?: boolean;
+    };
+}
+
+export type ToolInvocationConfig = CommonInvokeConfig | RequestUserInteractionConfig;
+
+/** Result envelope for a product REST call made on behalf of Veeam Intelligence. */
+export interface ToolCallResult {
+    status: 'success' | 'error';
+    data: unknown;
+}
 
 export interface SocketConfig {
     withCredentials?: boolean;
     socketPath?: string;
+    /** Overrides `serviceInfo.chatbotMode` in the handshake (used to downgrade AdvancedWithActions). */
+    mode?: ChatbotMode;
 }

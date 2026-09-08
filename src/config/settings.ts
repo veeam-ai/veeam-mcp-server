@@ -49,6 +49,19 @@ const settingsSchema = z.object({
     ACCEPT_SELF_SIGNED_CERT: z
         .preprocess((val) => (typeof val === 'string' ? val.toLowerCase().trim() === 'true' : false), z.boolean())
         .default(false),
+    ACTION_CONFIRMATION_TIMEOUT_SEC: z
+        .preprocess(
+            (val) => (typeof val === 'string' && val.trim() !== '' ? Number(val) : undefined),
+            z.number().int().positive().max(1700),
+        )
+        .default(1500)
+        .describe(
+            'How long a proposed action waits for the user decision before it is declined (must stay below the 1800 s Veeam Intelligence budget).',
+        ),
+    CHAT_TURN_TIMEOUT_SEC: z
+        .preprocess((val) => (typeof val === 'string' && val.trim() !== '' ? Number(val) : undefined), z.number().int().positive())
+        .default(3600)
+        .describe('Upper bound for a single Veeam Intelligence answer, including confirmation waits.'),
 });
 
 function parseSettings() {
@@ -58,10 +71,10 @@ function parseSettings() {
         if (err instanceof z.ZodError) {
             const errorMessages = err.issues.map((issue) => issue.message);
             if (errorMessages.length == 1) {
-                throw new Error(errorMessages[0]);
+                throw new Error(errorMessages[0], { cause: err });
             } else if (errorMessages.length > 1) {
                 const message = 'Configuration errors:\n' + errorMessages.map((msg) => ` - ${msg}`).join('\n');
-                throw new Error(message);
+                throw new Error(message, { cause: err });
             }
         }
 
