@@ -18,7 +18,7 @@ describe('E2E: Validate answer test question', () => {
             };
 
             // Execute the main logic from debug.ts
-            const result = await answerQuestion(question, mockLog);
+            const result = await answerQuestion(question, { log: mockLog });
 
             // Validate that the function completed successfully
             expect(result).toBeDefined();

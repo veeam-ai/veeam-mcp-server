@@ -37,7 +37,7 @@ Veeam Intelligence MCP Server delivers cross-product, operational intelligence w
 
 - Real-time, cross-system insight for operators and AI agents.
 - Single conversational interface for daily operations, planned changes, and incident response.
-- Secure, governed access, with no destructive or configuration-changing actions enabled by default.
+- Secure, governed access. Product actions are available only when the Veeam Backup & Replication administrator enables the `AdvancedWithActions` chatbot mode (VBR 13.1+), and every state-changing call requires explicit user confirmation, see [Actions](#actions-vbr-131-and-later).
 - Full customer control over deployment, data exposure, and integration with AI clients, including local and self-hosted LLMs.
 
 ## Prerequisites
@@ -69,6 +69,8 @@ Collect the following credentials and connection details. These values are passe
 - `ADMIN_USERNAME`: The Veeam product administrator username, for example, `.\administrator`
 - `ADMIN_PASSWORD`: The administrator password
 - `ACCEPT_SELF_SIGNED_CERT`: Set to `true` if the Veeam product uses a self-signed SSL certificate, for example, `ACCEPT_SELF_SIGNED_CERT=true`
+- `ACTION_CONFIRMATION_TIMEOUT_SEC` (optional, default `1500`): How long a proposed action waits for the user's decision before it is declined automatically.
+- `CHAT_TURN_TIMEOUT_SEC` (optional, default `3600`): Upper bound for a single Veeam Intelligence answer, including confirmation waits.
 
 Paste these values directly into the MCP client, such as Visual Studio Code or Claude Desktop, so they are passed to the MCP process as environment variables.
 
@@ -338,6 +340,21 @@ mkdir -p .vscode
 2. At the bottom, click the tools icon and select the `veeam-intelligence` tool. The first time, click **Update Tools** under the `veeam-intelligence` section.
 3. Fill in the prompted variables.
 4. Once the MCP server is configured and selected in Copilot, it will answer requests that involve Veeam products.
+
+## Actions (VBR 13.1 and later)
+
+Veeam Backup & Replication 13.1 introduces the `AdvancedWithActions` chatbot mode: besides answering questions, Veeam Intelligence can propose product actions such as starting or disabling a job, rescanning a repository, or running a restore. The MCP server supports this mode with a **human-in-the-loop** design:
+
+- The MCP server **follows the chatbot mode configured on the Veeam server**; there is no separate switch. Actions are offered only when the product reports `AdvancedWithActions` (enabled by the VBR administrator in Veeam Intelligence settings). If the server has no action policy for the product version, the handshake is downgraded to `Advanced` (read-only) so Veeam Intelligence never proposes actions the server cannot gate.
+- Every state-changing REST call proposed by Veeam Intelligence is checked against a **deny-by-default policy** that mirrors the VBR web UI: `GET` requests always run; a small whitelist of POST-shaped reads and routine maintenance calls runs silently; the checklist of real actions (start/stop/disable job, restores, failover, ...) requires the user's confirmation; anything else is rejected without being executed.
+- Confirmations are delivered to the user by the MCP client:
+  - **Clients with MCP elicitation** (Claude Code, Visual Studio Code): the server asks for approval inside the tool call with a native Yes/No dialog that shows the action title, its risk description, the exact request (method, path, body) and Veeam Intelligence's own explanation.
+  - **Clients without elicitation** (Claude Desktop): the `veeam-question-answering` tool returns early with a `pending_action` object and instructions. The assistant must present the action to the user and ask for approval; the user's decision is then passed to the `veeam-confirm-action` tool (`action_id`, `approve: true|false`), which executes (or declines) the action and returns the rest of the answer. Claude Desktop additionally shows its own permission prompt before `veeam-confirm-action` runs. `veeam-list-pending-actions` lists actions still waiting for a decision.
+- A declined or unanswered action (after `ACTION_CONFIRMATION_TIMEOUT_SEC`) is reported to Veeam Intelligence as cancelled by the user, and the answer says the action did not run. The `actions` field of every response lists what was executed, declined, rejected by policy or expired.
+
+No MCP-side configuration is needed: switch the Veeam Intelligence chatbot mode on the Veeam server to `AdvancedWithActions` and restart the MCP client. The server logs the product mode and the effective mode on startup (`mcp-server-veeam-intelligence.log` in Claude Desktop). To run the MCP server read-only, keep the product in `Advanced` mode.
+
+Limitations: the action policy currently covers VBR 13.1/13.2 REST endpoints (VBR 13.2 uses the same policy); actions are not available for Veeam ONE or VSPC. Each question opens a new Veeam Intelligence chat, so a confirmation must be answered within the same action flow rather than by asking a new question.
 
 ## Known issues
 

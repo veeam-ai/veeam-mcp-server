@@ -3,28 +3,25 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { Subject } from 'rxjs';
+import { Observable, Subject } from 'rxjs';
 import { io, Socket as SocketIO } from 'socket.io-client';
 import { v4 as uuidv4 } from 'uuid';
 
-import { ChatbotMode, ServiceInfo, SocketConfig, ToolInvocationConfig } from '@/common/types';
+import { ServiceInfo, SocketConfig } from '@/common/types';
+import { log } from '@/utils/logger';
 
-import {
-    ConnectionError,
-    ConnectionErrorCode,
-    SocketMessage,
-    SocketMessageType,
-    SocketEmitConfig,
-    ResponseErrorConfig,
-    ResponseChunk,
-    SocketSubscribeHandlers,
-} from './types';
+import { describeParseError, invocationIdSchema, responseChunkSchema, toolInvocationSchema } from './schemas';
+import { ChatTransport, ConnectionError, ConnectionErrorCode, ResponseErrorConfig, SocketEmitConfig, TransportInboundEvent } from './types';
 
-export class Socket {
+const KNOWN_CONNECTION_ERROR_CODES = new Set<string>(Object.values(ConnectionErrorCode));
+
+export class Socket implements ChatTransport {
     private instance: SocketIO | null;
-    private subject = new Subject<SocketMessage>();
+    private subject = new Subject<TransportInboundEvent>();
     private currentSessionId: string | null;
     private chatId: string;
+
+    public readonly events: Observable<TransportInboundEvent> = this.subject.asObservable();
 
     constructor() {
         this.currentSessionId = null;
@@ -32,7 +29,7 @@ export class Socket {
         this.chatId = uuidv4();
     }
 
-    public initSocket(serviceInfo: ServiceInfo, config: SocketConfig) {
+    public initialize(serviceInfo: ServiceInfo, config: SocketConfig) {
         if (this.instance === null) {
             if (!process.env.PRODUCT_NAME) {
                 throw new Error('PRODUCT_NAME environment variable is required');
@@ -45,7 +42,7 @@ export class Socket {
 
             const auth: any = {
                 token: null,
-                mode: serviceInfo.chatbotMode,
+                mode: config.mode ?? serviceInfo.chatbotMode,
                 chat_id: this.chatId,
                 timezone_offset: now.getTimezoneOffset() * -1,
             };
@@ -66,10 +63,6 @@ export class Socket {
         }
     }
 
-    public asObservable() {
-        return this.subject.asObservable();
-    }
-
     public connect() {
         this.getInstance().connect();
     }
@@ -82,85 +75,12 @@ export class Socket {
         this.getInstance().emit(config.name, config.value);
     }
 
-    public getNewMessageId() {
-        return uuidv4();
-    }
-
-    public subscribe(handlers: SocketSubscribeHandlers) {
-        if (this.instance === null) {
-            throw new Error("Veeam Intelligence Socket connection wasn't initialized");
-        }
-
-        const subscription = this.subject.subscribe(({ data, type }) => {
-            switch (type) {
-                case SocketMessageType.chunk: {
-                    handlers.onChunk(data);
-                    break;
-                }
-                case SocketMessageType.connected: {
-                    handlers.onConnected(data);
-                    break;
-                }
-                case SocketMessageType.connectionError: {
-                    handlers.onConnectionError(data);
-                    break;
-                }
-                case SocketMessageType.connectionInfoError: {
-                    handlers.onConnectionInfoError(data);
-                    break;
-                }
-                case SocketMessageType.disconnected: {
-                    handlers.onDisconnected(data);
-                    break;
-                }
-                case SocketMessageType.reconnectError: {
-                    handlers.onReconnectError(data);
-                    break;
-                }
-                case SocketMessageType.reconnectFailed: {
-                    handlers.onReconnectFailed(data);
-                    break;
-                }
-                case SocketMessageType.responseError: {
-                    handlers.onResponseError(data);
-                    break;
-                }
-                case SocketMessageType.tokenInvalid: {
-                    handlers.onTokenInvalid(data);
-                    break;
-                }
-                case SocketMessageType.tokenRequired: {
-                    handlers.onTokenRequired(data);
-                    break;
-                }
-                case SocketMessageType.toolInvocation: {
-                    handlers.onToolInvocation(data);
-                    break;
-                }
-                case SocketMessageType.unknownProduct: {
-                    handlers.onUnknownProduct(data);
-                    break;
-                }
-                default: {
-                    throw new Error(`Unknown Veeam Intelligence Socket message type captured: ${String(type)}`);
-                }
-            }
-        });
-
-        return subscription;
-    }
-
     private addListeners() {
         this.getInstance().on('connect', () => {
             if (this.currentSessionId === null) {
                 this.currentSessionId = uuidv4();
 
-                const message = `Veeam Intelligence Socket Connection established successfully. Session id: ${this.currentSessionId}`;
-
-                this.subject.next({
-                    type: SocketMessageType.connected,
-                    data: { message },
-                });
+                this.subject.next({ type: 'connected', sessionId: this.currentSessionId });
             } else {
                 this.getInstance().disconnect();
             }
@@ -168,51 +88,52 @@ export class Socket {
 
         this.getInstance().on('connect_error', (error) => {
             if (this.getInstance().active === false) {
-                const connectionError = JSON.parse(error.message) as ConnectionError;
-
-                this.subject.next({
-                    type: this.mapConnectionError(connectionError.code),
-                    data: {
-                        message: connectionError.details,
-                    },
-                });
+                this.subject.next({ type: 'connectError', error: Socket.toConnectionError(error) });
             }
         });
 
         this.getInstance().on('disconnect', () => {
-            const message = `Veeam Intelligence Socket Connection ${this.currentSessionId} is terminated`;
             this.currentSessionId = null;
 
-            this.subject.next({
-                type: SocketMessageType.disconnected,
-                data: { message },
-            });
+            this.subject.next({ type: 'disconnected' });
         });
 
-        this.getInstance().on('response_chunk', (chunk: ResponseChunk | undefined) => {
+        this.getInstance().on('response_chunk', (chunk: unknown) => {
             if (this.currentSessionId === null || chunk === undefined) {
                 return;
             }
 
-            this.subject.next({
-                type: SocketMessageType.chunk,
-                data: {
-                    message: JSON.stringify(chunk),
-                },
-            });
+            const parsed = responseChunkSchema.safeParse(chunk);
+            if (!parsed.success) {
+                // Dropped rather than appended: a malformed chunk would otherwise reach the MCP
+                // client as part of the answer or as a broken artifact.
+                log.warn(`discarding malformed Veeam Intelligence response chunk (${describeParseError(parsed.error)})`);
+                return;
+            }
+
+            this.subject.next({ type: 'chunk', payload: parsed.data });
         });
 
-        this.getInstance().on('tool_invocation', (config: ToolInvocationConfig) => {
+        this.getInstance().on('tool_invocation', (config: unknown) => {
             if (this.currentSessionId === null) {
                 return;
             }
 
-            this.subject.next({
-                type: SocketMessageType.toolInvocation,
-                data: {
-                    message: JSON.stringify(config),
-                },
-            });
+            const parsed = toolInvocationSchema.safeParse(config);
+            if (parsed.success) {
+                this.subject.next({ type: 'toolInvocation', payload: parsed.data });
+                return;
+            }
+
+            const reason = describeParseError(parsed.error);
+            const withId = invocationIdSchema.safeParse(config);
+            if (withId.success) {
+                this.subject.next({ type: 'toolInvocationInvalid', invocationId: withId.data.invocation_id, reason });
+                return;
+            }
+
+            // No id to answer with; Veeam Intelligence gets no tool_result and will time out.
+            log.warn(`discarding unidentifiable Veeam Intelligence tool invocation (${reason})`);
         });
 
         this.getInstance().on('response_error', (config: ResponseErrorConfig) => {
@@ -220,30 +141,15 @@ export class Socket {
                 return;
             }
 
-            this.subject.next({
-                type: SocketMessageType.responseError,
-                data: {
-                    message: config.details,
-                },
-            });
+            this.subject.next({ type: 'responseError', details: config.details });
         });
 
         this.getInstance().io.on('reconnect_error', () => {
-            this.subject.next({
-                type: SocketMessageType.reconnectError,
-                data: {
-                    message: '',
-                },
-            });
+            this.subject.next({ type: 'reconnectError' });
         });
 
         this.getInstance().io.on('reconnect_failed', () => {
-            this.subject.next({
-                type: SocketMessageType.reconnectFailed,
-                data: {
-                    message: '',
-                },
-            });
+            this.subject.next({ type: 'reconnectFailed' });
         });
     }
 
@@ -253,15 +159,6 @@ export class Socket {
         inst.auth = {
             ...inst.auth,
             token,
-        };
-    }
-
-    public setMode(mode: ChatbotMode) {
-        const inst = this.getInstance();
-
-        inst.auth = {
-            ...inst.auth,
-            mode,
         };
     }
 
@@ -301,16 +198,31 @@ export class Socket {
         return url.origin;
     }
 
-    private mapConnectionError(code: ConnectionErrorCode) {
-        switch (code) {
-            case ConnectionErrorCode.ConnectionInfo:
-                return SocketMessageType.connectionInfoError;
-            case ConnectionErrorCode.TokenRequired:
-                return SocketMessageType.tokenRequired;
-            case ConnectionErrorCode.TokenInvalid:
-                return SocketMessageType.tokenInvalid;
-            case ConnectionErrorCode.UnknownProduct:
-                return SocketMessageType.unknownProduct;
+    /**
+     * Veeam Intelligence reports handshake refusals as a JSON envelope in the error message.
+     * Anything else (an unreachable host sends "xhr poll error") is reported as `Unknown` rather
+     * than thrown, so a transport failure can never escape as an uncaught exception.
+     */
+    private static toConnectionError(error: Error): ConnectionError {
+        try {
+            const parsed: unknown = JSON.parse(error.message);
+
+            if (typeof parsed === 'object' && parsed !== null) {
+                const { code, details } = parsed as Record<string, unknown>;
+
+                if (typeof code === 'string' && typeof details === 'string') {
+                    // A code we don't know is reported as `Unknown` rather than passed through as a
+                    // value the `ConnectionErrorCode` type claims to cover.
+                    return {
+                        code: KNOWN_CONNECTION_ERROR_CODES.has(code) ? (code as ConnectionErrorCode) : ConnectionErrorCode.Unknown,
+                        details,
+                    };
+                }
+            }
+        } catch {
+            // not a Veeam Intelligence error envelope
         }
+
+        return { code: ConnectionErrorCode.Unknown, details: error.message };
     }
 }
