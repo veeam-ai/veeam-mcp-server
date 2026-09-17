@@ -36,7 +36,20 @@ export interface StringArtifact {
     data: string;
 }
 
-export type Artifact = StringArtifact | DataframeArtifact;
+/**
+ * An artifact as it arrives from Veeam Intelligence.
+ *
+ * `type` is deliberately open. Veeam Intelligence ships `string`, `dataframe`, `chart` and
+ * `hero-metric` today (see `ArtifactType` in veeam-intelligence `ai-core/src/types/artifacts.ts`)
+ * and adds more over time. The MCP server does not render artifacts — it forwards them verbatim to
+ * the client — so narrowing this to the shapes we happen to model would silently drop content.
+ * Use `StringArtifact` / `DataframeArtifact` where a specific shape is actually needed.
+ */
+export interface Artifact {
+    id: string;
+    type: string;
+    data: unknown;
+}
 
 export interface ChatBotAuthResult {
     access_token: string;
@@ -71,13 +84,17 @@ interface BaseToolInvocationConfig {
  * Veeam Intelligence asks the client to call a product REST endpoint. Reads are GET; actions
  * (VBR 13.1+, AdvancedWithActions mode) arrive on the same envelope with a non-GET `method`,
  * an optional pre-serialised JSON `body`, and an optional assistant-written `description`.
+ *
+ * This is the validated, post-parse shape (see `socket/schemas.ts`). `method` is optional on the
+ * wire — a read omits it — and is defaulted to `GET` during parsing, so the gate and the REST
+ * client can never disagree about what an absent method meant.
  */
 export interface CommonInvokeConfig extends BaseToolInvocationConfig {
     tool_name: 'fetch_data_from_endpoint';
     parameters: {
         endpoint_path: string;
         query_params: Record<string, unknown>;
-        method?: ToolCallHttpMethod;
+        method: ToolCallHttpMethod;
         body?: string;
         headers?: Record<string, string>;
         description?: string;
@@ -112,6 +129,5 @@ export interface ToolCallResult {
 export interface SocketConfig {
     withCredentials?: boolean;
     socketPath?: string;
-    /** Overrides `serviceInfo.chatbotMode` in the handshake (used to downgrade AdvancedWithActions). */
     mode?: ChatbotMode;
 }

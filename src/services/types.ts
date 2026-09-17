@@ -6,11 +6,6 @@
 import { Artifact } from '@/common/types';
 import { ActionOutcome, ConfirmationRequest } from '@/actions/types';
 
-export interface SendMessageResponse {
-    message: string;
-    artifacts: Artifact[];
-}
-
 export interface ChatServiceOptions {
     /** Product code from settings (`vbr` | `vone` | `vspc`), selects the action policy. */
     productCode: string;

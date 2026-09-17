@@ -70,5 +70,17 @@ export interface ActionOutcome {
     error?: string;
 }
 
+/** What the caller should send back to Veeam Intelligence as the `tool_result`. */
+export interface ToolResultPayload {
+    status: string;
+    data: unknown;
+}
+
+/** One handled tool invocation: the reply to send, and the outcome to report (absent for silent reads). */
+export interface HandledInvocation {
+    result: ToolResultPayload;
+    outcome?: ActionOutcome;
+}
+
 /** Sent as `tool_result.data` when the user declines/cancels; the only value the agent maps to "user cancelled". */
 export const USER_CANCELLED_ACTION_RESULT = { code: 'user_cancelled_action' } as const;

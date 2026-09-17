@@ -9,7 +9,8 @@ import { AddressInfo } from 'node:net';
 import { Server as SocketIoServer, Socket as ServerSocket } from 'socket.io';
 
 import { ChatService } from '../chatService';
-import { ChatbotMode, CommonInvokeConfig, ServiceInfo, ToolCallResult, ToolInvocationConfig } from '@/common/types';
+import { ChatbotMode, CommonInvokeConfig, ServiceInfo, ToolCallResult } from '@/common/types';
+import type { ToolInvocationInput } from '@/socket/schemas';
 import type { ProductRestClient } from '@/product/ProductRestClient';
 
 process.env.PRODUCT_NAME = 'vbr';
@@ -30,7 +31,7 @@ class FakeEdcpServer {
     public readonly io: SocketIoServer;
     public readonly toolResults: ToolResultMessage[] = [];
     public handshakeAuth: Record<string, unknown> = {};
-    public invocations: ToolInvocationConfig[] = [];
+    public invocations: ToolInvocationInput[] = [];
 
     constructor() {
         this.http = createServer();
@@ -75,7 +76,7 @@ class FakeEdcpServer {
     }
 }
 
-const startJobInvocation: CommonInvokeConfig = {
+const startJobInvocation: ToolInvocationInput = {
     invocation_id: 'inv-1',
     tool_name: 'fetch_data_from_endpoint',
     parameters: {
