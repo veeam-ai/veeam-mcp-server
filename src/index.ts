@@ -106,24 +106,20 @@ function createElicitationHandler(): ConfirmationHandler | undefined {
             {
                 mode: 'form',
                 message: formatConfirmationMessage(request),
-                requestedSchema: {
-                    type: 'object',
-                    properties: {
-                        approve: {
-                            type: 'boolean',
-                            title: 'Approve this action',
-                            description: 'Set to true to let Veeam Intelligence run this action now',
-                            default: false,
-                        },
-                    },
-                    required: ['approve'],
-                },
+                // No fields: accepting the prompt IS the approval. A boolean field would make the
+                // user both toggle it and submit, so submitting the form as presented — the
+                // obvious way to say yes — would silently count as a decline.
+                requestedSchema: { type: 'object', properties: {} },
             },
             { timeout: settings.ACTION_CONFIRMATION_TIMEOUT_SEC * 1000 },
         );
 
+        log.info(`confirmation prompt answered with "${result.action}": ${request.title}`);
+
+        // `accept` is the approval. The veto covers a client that returns an `approve` field we
+        // never asked for: an explicit `false` there means no, and must never be OR'd away.
         const content = result.content as { approve?: unknown } | undefined;
-        return result.action === 'accept' && content?.approve === true;
+        return result.action === 'accept' && content?.approve !== false;
     };
 }
 
