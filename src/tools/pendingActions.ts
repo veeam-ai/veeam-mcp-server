@@ -4,19 +4,13 @@
  */
 
 import type { ChatService } from '@/services/chatService';
-import { ConfirmationRequest } from './types';
+import { ConfirmationRequest } from '@/actions/types';
 
 export interface PendingActionEntry {
     request: ConfirmationRequest;
-    /** The live chat turn that is paused waiting for this decision. */
     chat: ChatService;
 }
 
-/**
- * Process-wide registry of confirmations that were handed to the MCP client as `pending_action`
- * (two-step flow for clients without elicitation). Entries are removed when the confirmation is
- * settled (approved, declined, expired or the turn ended).
- */
 export class PendingActionRegistry {
     private readonly entries = new Map<string, PendingActionEntry>();
 

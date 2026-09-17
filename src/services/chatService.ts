@@ -4,34 +4,26 @@
  */
 
 import { Subscription } from 'rxjs';
-import { v4 as uuidv4 } from 'uuid';
 
 import { Socket } from '@/socket/Socket';
+import { ServiceInfo, ChatBotAuthResult, Artifact, ChatbotMode, ToolInvocationConfig, MessageRole, isAdvancedMode } from '@/common/types';
 import {
-    ServiceInfo,
-    ChatBotAuthResult,
-    Artifact,
-    ChatbotMode,
-    ToolInvocationConfig,
-    CommonInvokeConfig,
-    RequestUserInteractionConfig,
-    MessageRole,
-    isAdvancedMode,
-    ToolCallResult,
-} from '@/common/types';
-import { SocketEmitConfig, SocketMessageData, SocketSubscribeHandlers, ResponseChunk } from '@/socket/types';
+    ChatTransport,
+    ConnectionError,
+    ConnectionErrorCode,
+    ResponseChunk,
+    SocketEmitConfig,
+    TransportInboundEvent,
+} from '@/socket/types';
 import type { ProductRestClient } from '@/product/ProductRestClient';
 import { Deferred } from '@/utils';
 import { log } from '@/utils/logger';
-import { ActionOutcome, ConfirmationDecision, ConfirmationRequest, USER_CANCELLED_ACTION_RESULT } from '@/actions/types';
-import { FetchGate } from '@/actions/fetchGate';
+import { ActionOutcome, ConfirmationDecision, ConfirmationRequest, HandledInvocation } from '@/actions/types';
+import { ActionExecutor } from '@/actions/ActionExecutor';
+import { ConfirmationBroker } from '@/actions/ConfirmationBroker';
+import { InteractionHandler } from '@/actions/InteractionHandler';
 import { resolveActionsConfig } from '@/actions/resolveActionsConfig';
 import { ChatServiceOptions, TurnOutcome } from './types';
-
-interface PendingConfirmation {
-    request: ConfirmationRequest;
-    decision: Deferred<ConfirmationDecision>;
-}
 
 const DEFAULT_OPTIONS: ChatServiceOptions = {
     productCode: process.env.PRODUCT_NAME ?? '',
@@ -39,21 +31,27 @@ const DEFAULT_OPTIONS: ChatServiceOptions = {
     turnTimeoutMs: 3600 * 1000,
 };
 
+function toMessage(error: unknown): string {
+    return error instanceof Error ? error.message : String(error);
+}
+
 /**
  * One Veeam Intelligence chat connection. A turn starts with `sendMessage()` and ends when the
  * server closes the socket. When Veeam Intelligence proposes an action that needs the user's
  * approval, the turn pauses: the outcome is `awaiting_confirmation`, the socket stays open, and
  * the caller continues with `resolveConfirmation()` + `resume()`.
  */
-export class ChatService implements SocketSubscribeHandlers {
-    private socket: Socket;
+export class ChatService {
+    private transport: ChatTransport;
     private serviceInfo!: ServiceInfo;
     private authResponse!: ChatBotAuthResult;
     private productRestClient: ProductRestClient;
     private readonly options: ChatServiceOptions;
 
     private effectiveMode: ChatbotMode = ChatbotMode.Base;
-    private fetchGate: FetchGate = new FetchGate(undefined);
+    // Built in initialize(), once the product has told us which policy applies.
+    private actionExecutor!: ActionExecutor;
+    private readonly interactions: InteractionHandler;
 
     private message: string = '';
     private artifacts: Artifact[] = [];
@@ -62,12 +60,7 @@ export class ChatService implements SocketSubscribeHandlers {
 
     // Resolved by onDisconnected(): the server closes the socket when the answer is complete.
     private messageComplete: Deferred<void> = new Deferred<void>();
-    // Resolved when a tool invocation needs the user's decision before the turn can continue.
-    private confirmationRequested: Deferred<ConfirmationRequest> = new Deferred<ConfirmationRequest>();
-    private confirmationQueue: ConfirmationRequest[] = [];
-    // `true` while awaitOutcome() is racing and can take a confirmation directly (not via the queue).
-    private waiterActive = false;
-    private pending = new Map<string, PendingConfirmation>();
+    private readonly confirmations: ConfirmationBroker;
 
     private subscription: Subscription | null = null;
     private turnTimer: NodeJS.Timeout | null = null;
@@ -75,10 +68,12 @@ export class ChatService implements SocketSubscribeHandlers {
     private turnActive = false;
     private connected = false;
 
-    constructor(productRestClient: ProductRestClient, options: Partial<ChatServiceOptions> = {}) {
+    constructor(productRestClient: ProductRestClient, options: Partial<ChatServiceOptions> = {}, transport: ChatTransport = new Socket()) {
         this.productRestClient = productRestClient;
         this.options = { ...DEFAULT_OPTIONS, ...options };
-        this.socket = new Socket();
+        this.transport = transport;
+        this.confirmations = new ConfirmationBroker(this.options.confirmationTimeoutMs);
+        this.interactions = new InteractionHandler(this.confirmations, this.options.confirmationTimeoutMs);
     }
 
     public async initialize(): Promise<void> {
@@ -90,7 +85,12 @@ export class ChatService implements SocketSubscribeHandlers {
 
         const actionsConfig = resolveActionsConfig(serviceInfo, this.options.productCode);
         this.effectiveMode = actionsConfig.effectiveMode;
-        this.fetchGate = actionsConfig.fetchGate;
+        this.actionExecutor = new ActionExecutor(
+            actionsConfig.fetchGate,
+            this.productRestClient,
+            this.confirmations,
+            this.options.confirmationTimeoutMs,
+        );
 
         this.setupSocket();
     }
@@ -99,23 +99,19 @@ export class ChatService implements SocketSubscribeHandlers {
         return this.effectiveMode;
     }
 
-    public getServiceInfo(): ServiceInfo {
-        return this.serviceInfo;
-    }
-
     private setupSocket(): void {
-        this.socket.initSocket(this.serviceInfo, {
+        this.transport.initialize(this.serviceInfo, {
             socketPath: '/socket.io',
             withCredentials: true,
             mode: this.effectiveMode,
         });
-        this.socket.setAuthToken(this.authResponse.access_token);
+        this.transport.setAuthToken(this.authResponse.access_token);
 
         // Subscribe exactly once per connection; re-subscribing on every message duplicates handlers.
         this.subscription?.unsubscribe();
-        this.subscription = this.socket.subscribe(this);
+        this.subscription = this.transport.events.subscribe((event) => this.onTransportEvent(event));
 
-        this.socket.connect();
+        this.transport.connect();
     }
 
     public async sendMessage(message: string): Promise<TurnOutcome> {
@@ -128,7 +124,7 @@ export class ChatService implements SocketSubscribeHandlers {
         this.actions = [];
         this.reported = { message: 0, artifacts: 0, actions: 0 };
         this.messageComplete = new Deferred<void>();
-        this.confirmationQueue = [];
+        this.confirmations.dropUndelivered();
         this.turnTimedOut = false;
         this.turnActive = true;
 
@@ -149,7 +145,7 @@ export class ChatService implements SocketSubscribeHandlers {
         };
 
         this.startTurnTimer();
-        this.socket.emit(config);
+        this.transport.emit(config);
 
         return this.awaitOutcome();
     }
@@ -165,28 +161,12 @@ export class ChatService implements SocketSubscribeHandlers {
 
     /** Answer a pending confirmation. Returns `false` when the id is unknown (already settled). */
     public resolveConfirmation(id: string, approve: boolean): boolean {
-        const entry = this.pending.get(id);
-        if (entry === undefined) {
-            return false;
-        }
-
-        entry.decision.resolve(approve ? 'approved' : 'declined');
-        return true;
+        return this.confirmations.answer(id, approve);
     }
 
     /** Resolves once the confirmation is approved, declined, expired or abandoned. */
     public whenSettled(id: string): Promise<ConfirmationDecision> {
-        const entry = this.pending.get(id);
-        return entry === undefined ? Promise.resolve('expired') : entry.decision.promise;
-    }
-
-    public hasPendingConfirmations(): boolean {
-        return this.pending.size > 0;
-    }
-
-    public async reset(): Promise<void> {
-        this.disconnect();
-        await this.initialize();
+        return this.confirmations.whenDecided(id);
     }
 
     public disconnect(): void {
@@ -194,37 +174,17 @@ export class ChatService implements SocketSubscribeHandlers {
         this.subscription?.unsubscribe();
         this.subscription = null;
         this.turnActive = false;
+        this.onDisconnected();
 
         try {
-            this.socket.disconnect();
+            this.transport.disconnect();
         } catch {
             // socket was never initialised
         }
     }
 
-    public getMessage(): string {
-        return this.message;
-    }
-
-    public getArtifacts(): Artifact[] {
-        return this.artifacts;
-    }
-
     private async awaitOutcome(): Promise<TurnOutcome> {
-        const queued = this.confirmationQueue.shift();
-        if (queued !== undefined) {
-            return this.snapshot('awaiting_confirmation', queued);
-        }
-
-        this.confirmationRequested = new Deferred<ConfirmationRequest>();
-        this.waiterActive = true;
-
-        const winner = await Promise.race([
-            this.messageComplete.promise.then(() => 'complete' as const),
-            this.confirmationRequested.promise,
-        ]);
-
-        this.waiterActive = false;
+        const winner = await this.confirmations.awaitNextRequest(this.messageComplete.promise);
 
         if (winner === 'complete') {
             this.clearTurnTimer();
@@ -263,7 +223,7 @@ export class ChatService implements SocketSubscribeHandlers {
         this.turnTimer = setTimeout(() => {
             this.turnTimedOut = true;
             log.warn(`turn exceeded ${Math.round(this.options.turnTimeoutMs / 1000)} s; closing the Veeam Intelligence connection`);
-            this.socket.disconnect();
+            this.transport.disconnect();
         }, this.options.turnTimeoutMs);
     }
 
@@ -274,10 +234,59 @@ export class ChatService implements SocketSubscribeHandlers {
         }
     }
 
-    // Socket io handlers
-    public async onChunk(data: SocketMessageData): Promise<void> {
-        const chunk = JSON.parse(data.message) as ResponseChunk;
+    // Transport events
 
+    /**
+     * Single entry point for everything the connection reports. The `never` assignment in `default`
+     * makes the compiler reject a new `TransportInboundEvent` member until it is handled here.
+     */
+    private onTransportEvent(event: TransportInboundEvent): void {
+        switch (event.type) {
+            case 'connected':
+                this.connected = true;
+                return;
+            case 'chunk':
+                this.onChunk(event.payload);
+                return;
+            case 'toolInvocation':
+                // Deliberately not awaited: the turn advances through `messageComplete` and the
+                // confirmation deferreds, not through this promise. Rejections would otherwise
+                // escape as an unhandled rejection and take the MCP process down with them.
+                void this.onToolInvocation(event.payload).catch((error: unknown) => {
+                    log.error(`tool invocation ${event.payload.invocation_id} failed: ${toMessage(error)}`);
+                    this.emitToolResult(event.payload.invocation_id, 'error', {
+                        message: `The MCP server failed to handle this tool invocation: ${toMessage(error)}`,
+                    });
+                });
+                return;
+            case 'toolInvocationInvalid':
+                log.warn(`rejecting malformed tool invocation ${event.invocationId}: ${event.reason}`);
+                this.emitToolResult(event.invocationId, 'error', {
+                    message: `Veeam Intelligence sent a tool invocation the MCP server could not read (${event.reason})`,
+                });
+                return;
+            case 'responseError':
+                this.onResponseError(event.details);
+                return;
+            case 'connectError':
+                this.onConnectError(event.error);
+                return;
+            case 'disconnected':
+                this.onDisconnected();
+                return;
+            case 'reconnectError':
+            case 'reconnectFailed':
+                // socket.io has stopped retrying; the `disconnected` that follows ends the turn.
+                return;
+            default: {
+                const unhandled: never = event;
+                log.warn(`unhandled Veeam Intelligence transport event: ${JSON.stringify(unhandled)}`);
+                return;
+            }
+        }
+    }
+
+    private onChunk(chunk: ResponseChunk): void {
         switch (chunk.type) {
             case 'token':
                 this.message += chunk.payload;
@@ -288,50 +297,47 @@ export class ChatService implements SocketSubscribeHandlers {
         }
     }
 
-    public async onConnected(_: SocketMessageData): Promise<void> {
-        this.connected = true;
+    private onResponseError(details: string): void {
+        log.warn(`Veeam Intelligence response error: ${details}`);
+        this.message += `${this.message.length > 0 ? '\n\n' : ''}[Veeam Intelligence error] ${details}`;
     }
 
-    public async onConnectionError(_: SocketMessageData): Promise<void> {}
-
-    public async onConnectionInfoError(_: SocketMessageData): Promise<void> {}
-
-    public async onDisconnected(_: SocketMessageData): Promise<void> {
+    private onDisconnected(): void {
         this.connected = false;
 
         // Anything still waiting for the user can no longer be answered on this socket.
-        for (const entry of this.pending.values()) {
-            entry.decision.resolve('expired');
-        }
+        this.confirmations.expireAll();
 
         this.messageComplete.resolve();
     }
 
-    public async onReconnectError(_: SocketMessageData): Promise<void> {}
-
-    public async onReconnectFailed(_: SocketMessageData): Promise<void> {}
-
-    public async onResponseError(data: SocketMessageData): Promise<void> {
-        log.warn(`Veeam Intelligence response error: ${data.message}`);
-        this.message += `${this.message.length > 0 ? '\n\n' : ''}[Veeam Intelligence error] ${data.message}`;
+    /**
+     * The handshake was refused. A missing or stale token is recoverable, so re-authenticate and
+     * let the next connect carry a fresh one. The other codes are not handled yet: the socket stays
+     * down and the turn ends through `disconnected` with whatever had already been streamed.
+     */
+    private onConnectError(error: ConnectionError): void {
+        switch (error.code) {
+            case ConnectionErrorCode.TokenInvalid:
+            case ConnectionErrorCode.TokenRequired:
+                void this.refreshAuthToken().catch((cause: unknown) => {
+                    log.error(`could not refresh the Veeam Intelligence token: ${toMessage(cause)}`);
+                });
+                return;
+            default:
+                log.warn(`Veeam Intelligence connection error (${error.code}): ${error.details}`);
+                return;
+        }
     }
 
-    public async onTokenInvalid(_: SocketMessageData): Promise<void> {
+    private async refreshAuthToken(): Promise<void> {
         const authResult = await this.productRestClient.authenticateChatService();
         this.authResponse = authResult.response;
-        this.socket.setAuthToken(this.authResponse.access_token);
+        this.transport.setAuthToken(this.authResponse.access_token);
     }
 
-    public async onTokenRequired(_: SocketMessageData): Promise<void> {
-        const authResult = await this.productRestClient.authenticateChatService();
-        this.authResponse = authResult.response;
-        this.socket.setAuthToken(this.authResponse.access_token);
-    }
-
-    public async onToolInvocation(data: SocketMessageData): Promise<void> {
-        const config = JSON.parse(data.message) as ToolInvocationConfig;
+    private async onToolInvocation(config: ToolInvocationConfig): Promise<void> {
         const invocationId = config.invocation_id;
-        const toolName = String(config.tool_name);
 
         if (!isAdvancedMode(this.effectiveMode)) {
             this.emitToolResult(invocationId, 'error', {
@@ -342,160 +348,29 @@ export class ChatService implements SocketSubscribeHandlers {
 
         switch (config.tool_name) {
             case 'fetch_data_from_endpoint':
-                await this.handleFetchInvocation(config);
+                this.report(invocationId, await this.actionExecutor.execute(config));
                 return;
             case 'request_user_interaction':
-                await this.handleUserInteraction(config);
+                this.report(invocationId, await this.interactions.handle(config));
                 return;
             default: {
-                log.warn(`unsupported client tool requested by Veeam Intelligence: ${toolName}`);
+                // Unreachable: the wire schema admits only the tool names above.
+                const unsupported: never = config;
+                log.warn(`unsupported client tool requested by Veeam Intelligence: ${JSON.stringify(unsupported)}`);
                 this.emitToolResult(invocationId, 'error', {
-                    message: `Failed to provide Veeam Intelligence response. Unsupported client tool ${toolName}`,
+                    message: 'Failed to provide Veeam Intelligence response. Unsupported client tool',
                 });
             }
         }
     }
 
-    public async onUnknownProduct(_: SocketMessageData): Promise<void> {}
-
-    private async handleFetchInvocation(config: CommonInvokeConfig): Promise<void> {
-        const method = config.parameters.method ?? 'GET';
-        const path = config.parameters.endpoint_path;
-        const decision = this.fetchGate.decide(method, path);
-
-        switch (decision.kind) {
-            case 'allowed': {
-                const result = await this.productRestClient.getToolCallData(config);
-                this.emitToolResult(config.invocation_id, result.status, result.data);
-                return;
-            }
-            case 'rejected': {
-                log.warn(`action rejected by policy: ${decision.reason}`);
-                this.actions.push({
-                    action_id: '',
-                    title: `${method} ${path}`,
-                    method,
-                    path,
-                    decision: 'rejected',
-                    executed: false,
-                    error: decision.reason,
-                });
-                this.emitToolResult(config.invocation_id, 'error', { message: decision.reason });
-                return;
-            }
-            case 'confirm': {
-                const request: ConfirmationRequest = {
-                    id: uuidv4(),
-                    invocationId: config.invocation_id,
-                    kind: 'action',
-                    title: decision.title,
-                    description: decision.description,
-                    method,
-                    path,
-                    createdAt: Date.now(),
-                    expiresAt: Date.now() + this.options.confirmationTimeoutMs,
-                };
-                if (config.parameters.description !== undefined) {
-                    request.dynamicDescription = config.parameters.description;
-                }
-                if (config.parameters.query_params && Object.keys(config.parameters.query_params).length > 0) {
-                    request.queryParams = config.parameters.query_params;
-                }
-                if (config.parameters.body !== undefined && config.parameters.body.length > 0) {
-                    request.body = config.parameters.body;
-                }
-
-                const outcome = await this.waitForDecision(request);
-                const actionOutcome: ActionOutcome = {
-                    action_id: request.id,
-                    title: request.title,
-                    method,
-                    path,
-                    decision: outcome,
-                    executed: false,
-                };
-
-                if (outcome === 'approved') {
-                    const result = await this.productRestClient.getToolCallData(config);
-                    actionOutcome.executed = result.status === 'success';
-                    const httpStatus = ChatService.extractHttpStatus(result);
-                    if (httpStatus !== undefined) {
-                        actionOutcome.http_status = httpStatus;
-                    }
-                    if (result.status !== 'success') {
-                        actionOutcome.error = ChatService.describeError(result);
-                    }
-                    log.info(
-                        `action ${outcome}: ${method} ${path} → ${result.status}${httpStatus !== undefined ? ` (${httpStatus})` : ''}`,
-                    );
-                    this.emitToolResult(config.invocation_id, result.status, result.data);
-                } else {
-                    log.info(`action ${outcome}: ${method} ${path}`);
-                    this.emitToolResult(config.invocation_id, 'error', USER_CANCELLED_ACTION_RESULT);
-                }
-
-                this.actions.push(actionOutcome);
-                return;
-            }
-        }
-    }
-
-    private async handleUserInteraction(config: RequestUserInteractionConfig): Promise<void> {
-        const { kind, title, label, description } = config.parameters;
-
-        if (kind !== 'confirmation') {
-            log.warn(`user interaction of kind "${kind}" is not supported by the MCP server; answering "cancelled"`);
-            this.emitToolResult(config.invocation_id, 'success', { status: 'cancelled' });
-            return;
+    /** Record what the handler decided for the MCP client, then answer Veeam Intelligence. */
+    private report(invocationId: string, handled: HandledInvocation): void {
+        if (handled.outcome !== undefined) {
+            this.actions.push(handled.outcome);
         }
 
-        const request: ConfirmationRequest = {
-            id: uuidv4(),
-            invocationId: config.invocation_id,
-            kind: 'interaction',
-            title: title ?? label ?? 'Veeam Intelligence asks for confirmation',
-            description: description ?? '',
-            createdAt: Date.now(),
-            expiresAt: Date.now() + this.options.confirmationTimeoutMs,
-        };
-
-        const outcome = await this.waitForDecision(request);
-        this.actions.push({ action_id: request.id, title: request.title, decision: outcome, executed: false });
-
-        if (outcome === 'expired') {
-            this.emitToolResult(config.invocation_id, 'success', { status: 'cancelled' });
-            return;
-        }
-
-        this.emitToolResult(config.invocation_id, 'success', { status: 'resolved', value: outcome === 'approved' });
-    }
-
-    /**
-     * Publish the confirmation to the current `sendMessage()`/`resume()` waiter and block until the
-     * user decides or the confirmation times out.
-     */
-    private async waitForDecision(request: ConfirmationRequest): Promise<ConfirmationDecision> {
-        const entry: PendingConfirmation = {
-            request,
-            decision: new Deferred<ConfirmationDecision>(),
-        };
-        this.pending.set(request.id, entry);
-
-        // Hand the request to whoever is awaiting the turn outcome, or queue it for the next awaiter.
-        if (this.waiterActive) {
-            this.waiterActive = false;
-            this.confirmationRequested.resolve(request);
-        } else {
-            this.confirmationQueue.push(request);
-        }
-
-        const timer = setTimeout(() => entry.decision.resolve('expired'), this.options.confirmationTimeoutMs);
-        const decision = await entry.decision.promise;
-        clearTimeout(timer);
-
-        this.pending.delete(request.id);
-
-        return decision;
+        this.emitToolResult(invocationId, handled.result.status, handled.result.data);
     }
 
     private emitToolResult(invocationId: string, status: string, data: unknown): void {
@@ -504,7 +379,7 @@ export class ChatService implements SocketSubscribeHandlers {
             return;
         }
 
-        this.socket.emit({
+        this.transport.emit({
             name: 'tool_result',
             value: {
                 invocation_id: invocationId,
@@ -512,20 +387,5 @@ export class ChatService implements SocketSubscribeHandlers {
                 data,
             },
         });
-    }
-
-    private static extractHttpStatus(result: ToolCallResult): number | undefined {
-        const data = result.data as { status?: unknown } | null;
-        return typeof data?.status === 'number' ? data.status : undefined;
-    }
-
-    private static describeError(result: ToolCallResult): string {
-        const data = result.data as { status?: unknown; body?: unknown; message?: unknown } | null;
-        if (typeof data?.message === 'string') {
-            return data.message;
-        }
-        const body = typeof data?.body === 'string' ? data.body : JSON.stringify(data?.body ?? '');
-        const status = typeof data?.status === 'number' ? String(data.status) : '?';
-        return `HTTP ${status}: ${body}`;
     }
 }

@@ -8,25 +8,14 @@ import { FetchGate } from './fetchGate';
 import { FetchPolicy, getFetchPolicy } from './policies';
 
 export interface ActionsConfig {
-    /** Mode reported by the product. */
     productMode: ChatbotMode;
-    /** Mode the MCP server actually uses in the Veeam Intelligence handshake. */
     effectiveMode: ChatbotMode;
-    /** `true` when actions can be proposed and will be gated for user confirmation. */
     actionsEnabled: boolean;
     policy?: FetchPolicy;
     fetchGate: FetchGate;
-    /** Human-readable explanation of why the effective mode differs from the product mode. */
     notes: string[];
 }
 
-/**
- * Decide the handshake mode and the action policy for this process from the product's chatbot mode.
- * The product administrator enables actions by selecting `AdvancedWithActions` on the Veeam server;
- * the MCP server follows that choice as long as it has a fetch policy for the product/version, and
- * every state-changing call still requires the user's confirmation. Without a policy the mode is
- * downgraded to `Advanced` so Veeam Intelligence never proposes actions the server cannot gate.
- */
 export function resolveActionsConfig(serviceInfo: ServiceInfo, productCode: string): ActionsConfig {
     const productMode = serviceInfo.chatbotMode;
     const notes: string[] = [];

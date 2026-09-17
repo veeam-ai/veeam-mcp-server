@@ -44,7 +44,7 @@ export abstract class BaseRestClient implements ProductRestClient {
             };
         }
 
-        const { endpoint_path, query_params, method = 'GET', body, headers } = config.parameters;
+        const { endpoint_path, query_params, method, body, headers } = config.parameters;
         const query = createSortFindParams(query_params ?? {});
         let url = endpoint_path;
 
@@ -53,7 +53,6 @@ export abstract class BaseRestClient implements ProductRestClient {
         }
 
         try {
-            // `body` arrives pre-serialised from Veeam Intelligence; send it verbatim.
             const response = await this.requestRaw({ method, url, data: body, headers });
             const ok = response.status >= 200 && response.status < 300;
 
@@ -69,7 +68,6 @@ export abstract class BaseRestClient implements ProductRestClient {
         }
     }
 
-    // Convenience methods for common HTTP verbs
     protected async get<T>(url: string, config?: RequestConfig): Promise<T> {
         return this.request<T>({ ...config, method: 'GET', url });
     }
@@ -79,7 +77,6 @@ export abstract class BaseRestClient implements ProductRestClient {
     }
 
     private async prepareRequest(config: { url: string; headers?: Record<string, string> }) {
-        // Ensure we have a valid token
         if (this.shouldRefreshToken()) {
             await this.authenticate();
         }
@@ -106,10 +103,6 @@ export abstract class BaseRestClient implements ProductRestClient {
         }
     }
 
-    /**
-     * Request that resolves for every HTTP status (only network/transport errors throw),
-     * with the same automatic token refresh and single 401 retry as `request`.
-     */
     private async requestRaw(config: {
         method: string;
         url: string;

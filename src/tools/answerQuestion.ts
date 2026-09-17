@@ -7,7 +7,7 @@ import { ChatService } from '@/services';
 import { TurnOutcome } from '@/services/types';
 import { createProductRestClient, ProductRestClient } from '@/product';
 import { settings, getProductCode } from '@/config/settings';
-import { pendingActions } from '@/actions/pendingActions';
+import { pendingActions } from './pendingActions';
 import { ActionOutcome, ConfirmationRequest } from '@/actions/types';
 import { Artifact } from '@/common/types';
 import { log } from '@/utils/logger';
