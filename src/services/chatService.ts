@@ -6,15 +6,17 @@
 import { Subscription } from 'rxjs';
 
 import { Socket } from '@/socket/Socket';
-import { ServiceInfo, ChatBotAuthResult, Artifact, ChatbotMode, ToolInvocationConfig, MessageRole, isAdvancedMode } from '@/common/types';
 import {
-    ChatTransport,
-    ConnectionError,
-    ConnectionErrorCode,
+    ServiceInfo,
+    ChatBotAuthResult,
+    Artifact,
+    ChatbotMode,
     ResponseChunk,
-    SocketEmitConfig,
-    TransportInboundEvent,
-} from '@/socket/types';
+    ToolInvocationConfig,
+    MessageRole,
+    isAdvancedMode,
+} from '@/common/types';
+import { ChatTransport, ConnectionError, ConnectionErrorCode, SocketEmitConfig, TransportInboundEvent } from '@/socket/types';
 import type { ProductRestClient } from '@/product/ProductRestClient';
 import { Deferred } from '@/utils';
 import { log } from '@/utils/logger';

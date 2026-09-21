@@ -5,7 +5,7 @@
 
 import { Observable } from 'rxjs';
 
-import { Artifact, MessageRole, ServiceInfo, SocketConfig, ToolInvocationConfig } from '@/common/types';
+import { Artifact, MessageRole, ResponseChunk, ServiceInfo, SocketConfig, ToolInvocationConfig } from '@/common/types';
 
 export enum ConnectionErrorCode {
     TokenRequired = 'TOKEN_REQUIRED',
@@ -51,18 +51,6 @@ export interface SocketToolResultEmitConfig {
 }
 
 export type SocketEmitConfig = SocketMessageEmitConfig | SocketToolResultEmitConfig;
-
-interface ResponseChunkToken {
-    type: 'token';
-    payload: string;
-}
-
-interface ResponseChunkArtifact {
-    type: 'artifact';
-    payload: Artifact;
-}
-
-export type ResponseChunk = ResponseChunkToken | ResponseChunkArtifact;
 
 /**
  * Everything the Veeam Intelligence connection can report, as one discriminated union.

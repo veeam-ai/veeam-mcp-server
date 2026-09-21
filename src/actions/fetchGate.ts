@@ -4,7 +4,8 @@
  */
 
 import { matchTemplate } from './matchTemplate';
-import { FetchPolicyRegistry, GateDecision, HttpMethod } from './types';
+import { HttpMethod } from '@/common/types';
+import { FetchPolicyRegistry, GateDecision } from './types';
 
 /**
  * Host fetch gate: decides whether a product REST call proposed by Veeam Intelligence may run
