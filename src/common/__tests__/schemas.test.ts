@@ -40,7 +40,10 @@ describe('toolInvocationSchema', () => {
         expect(parsed.parameters.description).toBe('Start the job');
     });
 
-    it('preserves fields the MCP server does not model yet', () => {
+    // Forward compatibility for a frame the server acts on: a field Veeam Intelligence adds must
+    // never fail the connection. It is dropped rather than carried, so the inferred type stays
+    // exact for the gate and the REST client; an unmodelled field nothing reads is not content.
+    it('accepts, and drops, fields the MCP server does not model yet', () => {
         const parsed = toolInvocationSchema.parse({
             invocation_id: 'inv-1',
             tool_name: 'fetch_data_from_endpoint',
@@ -48,8 +51,9 @@ describe('toolInvocationSchema', () => {
             another_future_field: 42,
         });
 
-        expect(parsed).toMatchObject({ another_future_field: 42 });
-        expect(parsed.parameters).toMatchObject({ future_field: 'keep me' });
+        expect(parsed).not.toHaveProperty('another_future_field');
+        expect(parsed.parameters).not.toHaveProperty('future_field');
+        expect(parsed.parameters.endpoint_path).toBe('/api/v1/jobs');
     });
 
     it('rejects an unsupported HTTP method rather than passing it to the gate', () => {
@@ -112,6 +116,17 @@ describe('responseChunkSchema', () => {
 
         expect(result.success).toBe(true);
         expect(result.success && result.data.type === 'artifact' && result.data.payload.data).toEqual({ anything: true });
+    });
+
+    // Unlike a tool invocation, an artifact is forwarded to the MCP client untouched, so a field
+    // the MCP server does not model yet has to survive parsing or the client silently loses it.
+    it('preserves unmodelled fields on an artifact, which is forwarded verbatim', () => {
+        const parsed = responseChunkSchema.parse({
+            type: 'artifact',
+            payload: { id: 'a1', type: 'chart', data: { series: [1] }, title: 'Job durations' },
+        });
+
+        expect(parsed.type === 'artifact' && parsed.payload).toMatchObject({ title: 'Job durations' });
     });
 
     it.each([

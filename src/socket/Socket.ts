@@ -10,7 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { ServiceInfo, SocketConfig } from '@/common/types';
 import { log } from '@/utils/logger';
 
-import { describeParseError, invocationIdSchema, responseChunkSchema, toolInvocationSchema } from './schemas';
+import { describeParseError, invocationIdSchema, responseChunkSchema, toolInvocationSchema } from '@/common/schemas';
 import { ChatTransport, ConnectionError, ConnectionErrorCode, ResponseErrorConfig, SocketEmitConfig, TransportInboundEvent } from './types';
 
 const KNOWN_CONNECTION_ERROR_CODES = new Set<string>(Object.values(ConnectionErrorCode));

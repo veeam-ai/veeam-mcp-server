@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-export type HttpMethod = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+import { HttpMethod } from '@/common/types';
 
 /** One row of a host fetch policy: a method + `:param`-style path pattern. */
 export interface FetchPolicyEntry {

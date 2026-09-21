@@ -10,7 +10,7 @@ import { Server as SocketIoServer, Socket as ServerSocket } from 'socket.io';
 
 import { ChatService } from '../chatService';
 import { ChatbotMode, CommonInvokeConfig, ServiceInfo, ToolCallResult } from '@/common/types';
-import type { ToolInvocationInput } from '@/socket/schemas';
+import type { ToolInvocationInput } from '@/common/schemas';
 import type { ProductRestClient } from '@/product/ProductRestClient';
 
 process.env.PRODUCT_NAME = 'vbr';
