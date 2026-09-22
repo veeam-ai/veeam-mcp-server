@@ -29,6 +29,9 @@ export abstract class BaseRestClient implements ProductRestClient {
 
         this.client = axios.create({
             httpsAgent,
+            // Bound every REST call so an unreachable or black-holed host fails within a
+            // predictable time instead of hanging until the OS TCP timeout.
+            timeout: 30_000,
         });
     }
 

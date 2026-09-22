@@ -9,6 +9,7 @@ import type { ChatService } from '@/services/chatService';
 import type { TurnOutcome } from '@/services/types';
 import type { ActionOutcome, ConfirmationDecision, ConfirmationRequest } from '@/actions/types';
 import type { Artifact } from '@/common/types';
+import { ChatbotMode } from '@/common/types';
 
 // `@/config/settings` validates process.env at import time, so the modules under test are pulled in
 // dynamically after the environment is in place.
@@ -72,6 +73,10 @@ class FakeChat {
 
     public disconnect(): void {
         this.disconnects += 1;
+    }
+
+    public getEffectiveMode(): ChatbotMode {
+        return ChatbotMode.AdvancedWithActions;
     }
 
     /** Fires the `whenSettled` promise the parking code subscribed to. */
