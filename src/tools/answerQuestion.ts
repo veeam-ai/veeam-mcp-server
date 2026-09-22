@@ -9,7 +9,7 @@ import { createProductRestClient, ProductRestClient } from '@/product';
 import { settings, getProductCode } from '@/config/settings';
 import { pendingActions } from './pendingActions';
 import { ActionOutcome, ConfirmationRequest } from '@/actions/types';
-import { Artifact } from '@/common/types';
+import { Artifact, ChatbotMode } from '@/common/types';
 import { log } from '@/utils/logger';
 
 /** Asks the user (through the MCP client) whether an action may run. Resolves `true` to approve. */
@@ -44,6 +44,8 @@ export interface AskResult {
     message: string;
     artifacts: Artifact[];
     actions: ActionOutcome[];
+    /** Effective chatbot mode the product reported for this call. */
+    mode: ChatbotMode;
     pending_action?: PendingActionView;
     instructions?: string;
 }
@@ -91,7 +93,8 @@ function createChatService(client: ProductRestClient): ChatService {
  * Consume turn outcomes until the answer is complete, resolving confirmations in-band when a
  * handler is available, or parking the turn in the pending-action registry otherwise.
  */
-async function driveTurn(chat: ChatService, outcome: TurnOutcome, options: AskOptions, acc: AskResult): Promise<AskResult> {
+async function driveTurn(chat: ChatService, outcome: TurnOutcome, options: AskOptions): Promise<AskResult> {
+    const acc: AskResult = { message: '', artifacts: [], actions: [], mode: chat.getEffectiveMode() };
     let current = outcome;
 
     for (;;) {
@@ -149,7 +152,7 @@ export async function answerQuestion(question: string, options: AskOptions = {})
         await chat.initialize();
 
         const outcome = await chat.sendMessage(question);
-        const result = await driveTurn(chat, outcome, options, { message: '', artifacts: [], actions: [] });
+        const result = await driveTurn(chat, outcome, options);
 
         debug('Answer: ' + result.message);
         debug('Artifacts: ' + JSON.stringify(result.artifacts));
@@ -184,7 +187,7 @@ export async function confirmAction(actionId: string, approve: boolean, options:
 
     try {
         const outcome = await entry.chat.resume();
-        return await driveTurn(entry.chat, outcome, options, { message: '', artifacts: [], actions: [] });
+        return await driveTurn(entry.chat, outcome, options);
     } catch (error: any) {
         entry.chat.disconnect();
         const errorMessage = error?.message || String(error);

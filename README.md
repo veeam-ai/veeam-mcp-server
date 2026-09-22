@@ -190,7 +190,7 @@ For help locating the Claude Desktop MCP configuration file, see the Model Conte
 
 Replace the placeholder values inside the `env` block with your own secrets.
 
-2. Restart Claude Desktop to apply the changes. If Claude Desktop shows an MCP initialization error, review the MCP logs for troubleshooting.
+2. Restart Claude Desktop to apply the changes. The server starts without contacting the Veeam product, so connection or credential problems surface in the tool response when you ask a question. If Claude Desktop shows an MCP initialization error, review the MCP logs for troubleshooting.
 
 ```bash
 # Follow Veeam Intelligence MCP server logs in real time (macOS)
@@ -352,7 +352,7 @@ Veeam Backup & Replication 13.1 introduces the `AdvancedWithActions` chatbot mod
   - **Clients without elicitation** (Claude Desktop): the `veeam-question-answering` tool returns early with a `pending_action` object and instructions. The assistant must present the action to the user and ask for approval; the user's decision is then passed to the `veeam-confirm-action` tool (`action_id`, `approve: true|false`), which executes (or declines) the action and returns the rest of the answer. Claude Desktop additionally shows its own permission prompt before `veeam-confirm-action` runs. `veeam-list-pending-actions` lists actions still waiting for a decision.
 - A declined or unanswered action (after `ACTION_CONFIRMATION_TIMEOUT_SEC`) is reported to Veeam Intelligence as cancelled by the user, and the answer says the action did not run. The `actions` field of every response lists what was executed, declined, rejected by policy or expired.
 
-No MCP-side configuration is needed: switch the Veeam Intelligence chatbot mode on the Veeam server to `AdvancedWithActions` and restart the MCP client. The server logs the product mode and the effective mode on startup (`mcp-server-veeam-intelligence.log` in Claude Desktop). To run the MCP server read-only, keep the product in `Advanced` mode.
+No MCP-side configuration is needed: switch the Veeam Intelligence chatbot mode on the Veeam server to `AdvancedWithActions`. The MCP server reads the chatbot mode from the product on every question, so no restart is required. To run the MCP server read-only, keep the product in `Advanced` mode.
 
 Limitations: the action policy currently covers VBR 13.1/13.2 REST endpoints (VBR 13.2 uses the same policy); actions are not available for Veeam ONE or VSPC. Each question opens a new Veeam Intelligence chat, so a confirmation must be answered within the same action flow rather than by asking a new question.
 
