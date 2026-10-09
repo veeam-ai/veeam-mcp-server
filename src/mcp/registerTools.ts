@@ -4,8 +4,9 @@
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { RequestId } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { answerQuestion, confirmAction, listPendingActions, AskResult, ConfirmationHandler } from '@/tools';
+import { answerQuestion, confirmAction, listPendingActions, AskResult, ConfirmationHandler, PendingActionRegistry } from '@/tools';
 import { createToolMetadata } from './toolFactory';
 import { ChatbotMode } from '@/common/types';
 import { ConfirmationRequest } from '@/actions/types';
@@ -100,7 +101,7 @@ function formatConfirmationMessage(request: ConfirmationRequest): string {
  * declared the `elicitation` capability (Claude Code, VS Code); Claude Desktop falls back to the
  * two-step `pending_action` / `veeam-confirm-action` flow.
  */
-function createElicitationHandler(server: McpServer): ConfirmationHandler | undefined {
+function createElicitationHandler(server: McpServer, relatedRequestId: RequestId): ConfirmationHandler | undefined {
     const capabilities = server.server.getClientCapabilities();
     if (!capabilities?.elicitation) {
         return undefined;
@@ -116,7 +117,7 @@ function createElicitationHandler(server: McpServer): ConfirmationHandler | unde
                 // obvious way to say yes — would silently count as a decline.
                 requestedSchema: { type: 'object', properties: {} },
             },
-            { timeout: settings.ACTION_CONFIRMATION_TIMEOUT_SEC * 1000 },
+            { timeout: settings.ACTION_CONFIRMATION_TIMEOUT_SEC * 1000, relatedRequestId },
         );
 
         log.info(`confirmation prompt answered with "${result.action}": ${request.title}`);
@@ -134,7 +135,7 @@ function createElicitationHandler(server: McpServer): ConfirmationHandler | unde
  * never depends on the product being reachable at startup. The confirmation tools are harmless
  * when the product is not in AdvancedWithActions mode: nothing is ever parked for them to act on.
  */
-export function registerTools(server: McpServer): void {
+export function registerTools(server: McpServer, pendingActions: PendingActionRegistry): void {
     const { title, description } = createToolMetadata();
 
     server.registerTool(
@@ -154,8 +155,11 @@ export function registerTools(server: McpServer): void {
                 openWorldHint: false,
             },
         },
-        async ({ question }) => {
-            const result = await answerQuestion(question, { confirmationHandler: createElicitationHandler(server) });
+        async ({ question }, extra) => {
+            const result = await answerQuestion(question, {
+                pendingActions,
+                confirmationHandler: createElicitationHandler(server, extra.requestId),
+            });
             return toToolResult(result);
         },
     );
@@ -181,8 +185,11 @@ export function registerTools(server: McpServer): void {
                 openWorldHint: false,
             },
         },
-        async ({ action_id, approve }) => {
-            const result = await confirmAction(action_id, approve, { confirmationHandler: createElicitationHandler(server) });
+        async ({ action_id, approve }, extra) => {
+            const result = await confirmAction(action_id, approve, {
+                pendingActions,
+                confirmationHandler: createElicitationHandler(server, extra.requestId),
+            });
             return toToolResult(result);
         },
     );
@@ -202,7 +209,7 @@ export function registerTools(server: McpServer): void {
             },
         },
         async () => {
-            const pending_actions = listPendingActions();
+            const pending_actions = listPendingActions(pendingActions);
             const structured = { pending_actions };
             return {
                 content: [{ type: 'text' as const, text: JSON.stringify(structured) }],
