@@ -10,6 +10,7 @@ import type { TurnOutcome } from '@/services/types';
 import type { ActionOutcome, ConfirmationDecision, ConfirmationRequest } from '@/actions/types';
 import type { Artifact } from '@/common/types';
 import { ChatbotMode } from '@/common/types';
+import { PendingActionRegistry } from '../pendingActions';
 
 // `@/config/settings` validates process.env at import time, so the modules under test are pulled in
 // dynamically after the environment is in place.
@@ -19,14 +20,16 @@ process.env.ADMIN_USERNAME = 'admin';
 process.env.ADMIN_PASSWORD = 'password';
 
 type AnswerQuestionModule = typeof import('../answerQuestion');
-type PendingActionsModule = typeof import('../pendingActions');
 
 let tools: AnswerQuestionModule;
-let registry: PendingActionsModule['pendingActions'];
+let registry: PendingActionRegistry;
 
 beforeAll(async () => {
     tools = await import('../answerQuestion');
-    registry = (await import('../pendingActions')).pendingActions;
+});
+
+beforeEach(() => {
+    registry = new PendingActionRegistry();
 });
 
 /**
@@ -116,7 +119,7 @@ function outcome(id: string, decision: ConfirmationDecision, executed: boolean):
     return { action_id: id, title: 'Start this backup job?', decision, executed };
 }
 
-/** Parks a confirmation in the shared registry the way `driveTurn` does, without running a turn. */
+/** Parks a confirmation in the session registry the way `driveTurn` does, without running a turn. */
 function park(chat: FakeChat, req: ConfirmationRequest): void {
     registry.add({ request: req, chat: chat.asChatService });
 }
@@ -190,14 +193,13 @@ describe('confirmAction', () => {
 
     afterEach(() => {
         stderr.mockRestore();
-        for (const pending of registry.list()) {
-            registry.delete(pending.id);
-        }
     });
 
     it('rejects an unknown id and states that nothing ran', async () => {
-        await expect(tools.confirmAction('nope', true)).rejects.toThrow(/Unknown or expired action id "nope"/);
-        await expect(tools.confirmAction('nope', true)).rejects.toThrow(/was not executed/);
+        await expect(tools.confirmAction('nope', true, { pendingActions: registry })).rejects.toThrow(
+            /Unknown or expired action id "nope"/,
+        );
+        await expect(tools.confirmAction('nope', true, { pendingActions: registry })).rejects.toThrow(/was not executed/);
     });
 
     it('rejects an id that expired before the decision arrived, and forgets it', async () => {
@@ -205,7 +207,7 @@ describe('confirmAction', () => {
         chat.resolvable = false;
         park(chat, request('a1'));
 
-        await expect(tools.confirmAction('a1', true)).rejects.toThrow(/already expired/);
+        await expect(tools.confirmAction('a1', true, { pendingActions: registry })).rejects.toThrow(/already expired/);
 
         expect(registry.get('a1')).toBeUndefined();
         expect(chat.resumes).toBe(0);
@@ -216,7 +218,7 @@ describe('confirmAction', () => {
         const chat = new FakeChat(complete('The job is running.', [artifact], [outcome('a1', 'approved', true)]));
         park(chat, request('a1'));
 
-        const result = await tools.confirmAction('a1', true);
+        const result = await tools.confirmAction('a1', true, { pendingActions: registry });
 
         expect(chat.resolved).toEqual([{ id: 'a1', approve: true }]);
         expect(result.message).toBe('The job is running.');
@@ -231,7 +233,7 @@ describe('confirmAction', () => {
         const chat = new FakeChat(complete('Understood, I left the job alone.', [], [outcome('a1', 'declined', false)]));
         park(chat, request('a1'));
 
-        const result = await tools.confirmAction('a1', false);
+        const result = await tools.confirmAction('a1', false, { pendingActions: registry });
 
         expect(chat.resolved).toEqual([{ id: 'a1', approve: false }]);
         expect(result.actions[0]?.executed).toBe(false);
@@ -242,7 +244,7 @@ describe('confirmAction', () => {
         const chat = new FakeChat(awaiting(followUp, 'First job done. ', [], [outcome('a1', 'approved', true)]));
         park(chat, request('a1'));
 
-        const result = await tools.confirmAction('a1', true);
+        const result = await tools.confirmAction('a1', true, { pendingActions: registry });
 
         expect(result.message).toBe('First job done. ');
         expect(result.actions).toEqual([outcome('a1', 'approved', true)]);
@@ -253,7 +255,7 @@ describe('confirmAction', () => {
         // The socket turn must stay open — the follow-up is still waiting on the user.
         expect(chat.disconnects).toBe(0);
         expect(registry.list().map((pending) => pending.id)).toEqual(['a2']);
-        expect(tools.listPendingActions().map((view) => view.action_id)).toEqual(['a2']);
+        expect(tools.listPendingActions(registry).map((view) => view.action_id)).toEqual(['a2']);
     });
 
     it('forgets a parked action once the underlying confirmation settles', async () => {
@@ -261,14 +263,14 @@ describe('confirmAction', () => {
         const chat = new FakeChat(awaiting(followUp));
         park(chat, request('a1'));
 
-        await tools.confirmAction('a1', true);
+        await tools.confirmAction('a1', true, { pendingActions: registry });
         expect(registry.get('a2')).toBeDefined();
 
         chat.settle('a2', 'expired');
         await Promise.resolve();
 
         expect(registry.get('a2')).toBeUndefined();
-        expect(tools.listPendingActions()).toEqual([]);
+        expect(tools.listPendingActions(registry)).toEqual([]);
     });
 
     it('resolves follow-up confirmations in-band when the client supports elicitation', async () => {
@@ -287,7 +289,7 @@ describe('confirmAction', () => {
             return req.id !== 'a3';
         };
 
-        const result = await tools.confirmAction('a1', true, { confirmationHandler });
+        const result = await tools.confirmAction('a1', true, { pendingActions: registry, confirmationHandler });
 
         expect(asked).toEqual(['a2', 'a3']);
         expect(chat.resolved).toEqual([
@@ -311,7 +313,7 @@ describe('confirmAction', () => {
             throw new Error('client closed the elicitation');
         };
 
-        const result = await tools.confirmAction('a1', true, { confirmationHandler });
+        const result = await tools.confirmAction('a1', true, { pendingActions: registry, confirmationHandler });
 
         expect(chat.resolved).toContainEqual({ id: 'a2', approve: false });
         expect(result.message).toBe('Left it alone.');
@@ -323,21 +325,15 @@ describe('confirmAction', () => {
         chat.resumeError = new Error('socket closed');
         park(chat, request('a1'));
 
-        await expect(tools.confirmAction('a1', true)).rejects.toThrow(/Error occurred: socket closed/);
+        await expect(tools.confirmAction('a1', true, { pendingActions: registry })).rejects.toThrow(/Error occurred: socket closed/);
 
         expect(chat.disconnects).toBe(1);
     });
 });
 
 describe('listPendingActions', () => {
-    afterEach(() => {
-        for (const pending of registry.list()) {
-            registry.delete(pending.id);
-        }
-    });
-
     it('is empty when nothing is waiting', () => {
-        expect(tools.listPendingActions()).toEqual([]);
+        expect(tools.listPendingActions(registry)).toEqual([]);
     });
 
     it('reports every parked request as a client-facing view', () => {
@@ -345,7 +341,7 @@ describe('listPendingActions', () => {
         park(chat, request('a1', { title: 'Start this backup job?' }));
         park(chat, request('a2', { title: 'Delete this backup?', kind: 'interaction' }));
 
-        expect(tools.listPendingActions()).toEqual([
+        expect(tools.listPendingActions(registry)).toEqual([
             expect.objectContaining({ action_id: 'a1', kind: 'action', title: 'Start this backup job?' }),
             expect.objectContaining({ action_id: 'a2', kind: 'interaction', title: 'Delete this backup?' }),
         ]);
