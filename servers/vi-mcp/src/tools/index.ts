@@ -4,4 +4,5 @@
  */
 
 export { answerQuestion, confirmAction, listPendingActions } from './answerQuestion';
+export { PendingActionRegistry } from './pendingActions';
 export type { AskOptions, AskResult, ConfirmationHandler, PendingActionView } from './answerQuestion';

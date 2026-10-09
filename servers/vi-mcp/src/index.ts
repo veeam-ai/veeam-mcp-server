@@ -3,21 +3,49 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { registerTools } from './mcp/registerTools';
+import { createMcpSession } from './mcp/session';
+import { LOOPBACK_HOSTS, settings } from './config/settings';
+import { httpServerOptionsFromSettings, startHttpServer } from './transports/http';
 import { log } from './utils/logger';
 
-// Create an MCP server
-const server = new McpServer({
-    name: 'Veeam Intelligence',
-    version: '1.0.0',
-});
+async function serveStdio(): Promise<void> {
+    const { server } = createMcpSession();
+    await server.connect(new StdioServerTransport());
+    log.info('MCP server started on stdio; the chatbot mode is read from the Veeam product on every request');
+}
 
-// Tool registration is static: the Veeam product is contacted only when a tool is called.
-registerTools(server);
+async function serveHttp(): Promise<void> {
+    const options = httpServerOptionsFromSettings(settings, createMcpSession);
+    const running = await startHttpServer(options);
 
-// Start receiving messages on stdin and sending messages on stdout
-const transport = new StdioServerTransport();
-await server.connect(transport);
-log.info('MCP server started; the chatbot mode is read from the Veeam product on every request');
+    log.info(`MCP server listening on ${running.url}; the chatbot mode is read from the Veeam product on every request`);
+    if (options.authToken === undefined) {
+        log.warn('MCP_HTTP_AUTH_TOKEN is not set: any local process can use this endpoint');
+    }
+    if (options.tls === undefined && !LOOPBACK_HOSTS.includes(options.host.toLowerCase())) {
+        log.warn('TLS is not configured: the bearer token travels in clear text unless a TLS-terminating proxy is in front');
+    }
+
+    let stopping = false;
+    const shutdown = (signal: string) => {
+        if (stopping) {
+            return;
+        }
+        stopping = true;
+        log.info(`${signal} received; closing ${running.sessionCount} HTTP session(s)`);
+        void running.close().then(() => process.exit(0));
+    };
+
+    process.once('SIGINT', () => shutdown('SIGINT'));
+    process.once('SIGTERM', () => shutdown('SIGTERM'));
+}
+
+switch (settings.MCP_TRANSPORT) {
+    case 'stdio':
+        await serveStdio();
+        break;
+    case 'http':
+        await serveHttp();
+        break;
+}

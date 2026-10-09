@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 import { PendingActionRegistry } from '../pendingActions';
 import type { ChatService } from '@/services/chatService';
@@ -77,5 +77,19 @@ describe('PendingActionRegistry', () => {
     it('treats an unknown id as absent instead of throwing', () => {
         expect(registry.get('missing')).toBeUndefined();
         expect(registry.delete('missing')).toBe(false);
+    });
+
+    it('disconnects each parked chat once and forgets every entry when abandoned', () => {
+        const disconnect = jest.fn();
+        const shared = { disconnect } as unknown as ChatService;
+        const other = { disconnect } as unknown as ChatService;
+        registry.add({ request: request('a'), chat: shared });
+        registry.add({ request: request('b'), chat: shared });
+        registry.add({ request: request('c'), chat: other });
+
+        registry.abandonAll();
+
+        expect(disconnect).toHaveBeenCalledTimes(2);
+        expect(registry.size).toBe(0);
     });
 });
