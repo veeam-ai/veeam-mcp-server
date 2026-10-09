@@ -7,7 +7,7 @@ import { ChatService } from '@/services';
 import { TurnOutcome } from '@/services/types';
 import { createProductRestClient, ProductRestClient } from '@/product';
 import { settings, getProductCode } from '@/config/settings';
-import { pendingActions } from './pendingActions';
+import { PendingActionRegistry } from './pendingActions';
 import { ActionOutcome, ConfirmationRequest } from '@/actions/types';
 import { Artifact, ChatbotMode } from '@/common/types';
 import { log } from '@/utils/logger';
@@ -16,6 +16,7 @@ import { log } from '@/utils/logger';
 export type ConfirmationHandler = (request: ConfirmationRequest) => Promise<boolean>;
 
 export interface AskOptions {
+    pendingActions: PendingActionRegistry;
     /**
      * When provided (client supports elicitation), confirmations are resolved inside the tool call.
      * Otherwise the call returns early with `pending_action` and the client must call
@@ -110,6 +111,7 @@ async function driveTurn(chat: ChatService, outcome: TurnOutcome, options: AskOp
         const { request } = current;
 
         if (options.confirmationHandler === undefined) {
+            const { pendingActions } = options;
             const entry = { request, chat };
             pendingActions.add(entry);
             void chat.whenSettled(request.id).then(() => {
@@ -137,7 +139,7 @@ async function driveTurn(chat: ChatService, outcome: TurnOutcome, options: AskOp
     }
 }
 
-export async function answerQuestion(question: string, options: AskOptions = {}): Promise<AskResult> {
+export async function answerQuestion(question: string, options: AskOptions): Promise<AskResult> {
     const debug = options.log ?? (() => {});
     let chat: ChatService | undefined;
 
@@ -169,7 +171,8 @@ export async function answerQuestion(question: string, options: AskOptions = {})
  * Second step of the two-step flow: apply the user's decision to a parked action and return the
  * rest of the Veeam Intelligence answer (or the next pending action).
  */
-export async function confirmAction(actionId: string, approve: boolean, options: AskOptions = {}): Promise<AskResult> {
+export async function confirmAction(actionId: string, approve: boolean, options: AskOptions): Promise<AskResult> {
+    const { pendingActions } = options;
     const entry = pendingActions.get(actionId);
     if (entry === undefined) {
         throw new Error(
@@ -195,6 +198,6 @@ export async function confirmAction(actionId: string, approve: boolean, options:
     }
 }
 
-export function listPendingActions(): PendingActionView[] {
+export function listPendingActions(pendingActions: PendingActionRegistry): PendingActionView[] {
     return pendingActions.list().map(toPendingActionView);
 }
