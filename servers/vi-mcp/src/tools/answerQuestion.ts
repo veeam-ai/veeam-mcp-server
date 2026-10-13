@@ -5,7 +5,7 @@
 
 import { ChatService } from '@/services';
 import { TurnOutcome } from '@/services/types';
-import { createProductRestClient, ProductRestClient } from '@/product';
+import { createProductRestClient, ProductRestClient, ProductUserAuth } from '@/product';
 import { settings, getProductCode } from '@/config/settings';
 import { PendingActionRegistry } from './pendingActions';
 import { ActionOutcome, ConfirmationRequest } from '@/actions/types';
@@ -17,6 +17,7 @@ export type ConfirmationHandler = (request: ConfirmationRequest) => Promise<bool
 
 export interface AskOptions {
     pendingActions: PendingActionRegistry;
+    productAuth: ProductUserAuth | undefined;
     /**
      * When provided (client supports elicitation), confirmations are resolved inside the tool call.
      * Otherwise the call returns early with `pending_action` and the client must call
@@ -94,7 +95,7 @@ function createChatService(client: ProductRestClient): ChatService {
  * Consume turn outcomes until the answer is complete, resolving confirmations in-band when a
  * handler is available, or parking the turn in the pending-action registry otherwise.
  */
-async function driveTurn(chat: ChatService, outcome: TurnOutcome, options: AskOptions): Promise<AskResult> {
+async function driveTurn(chat: ChatService, client: ProductRestClient, outcome: TurnOutcome, options: AskOptions): Promise<AskResult> {
     const acc: AskResult = { message: '', artifacts: [], actions: [], mode: chat.getEffectiveMode() };
     let current = outcome;
 
@@ -112,7 +113,7 @@ async function driveTurn(chat: ChatService, outcome: TurnOutcome, options: AskOp
 
         if (options.confirmationHandler === undefined) {
             const { pendingActions } = options;
-            const entry = { request, chat };
+            const entry = { request, chat, client };
             pendingActions.add(entry);
             void chat.whenSettled(request.id).then(() => {
                 if (pendingActions.get(request.id) === entry) {
@@ -145,7 +146,7 @@ export async function answerQuestion(question: string, options: AskOptions): Pro
 
     try {
         debug('Initializing ProductClient...');
-        const client: ProductRestClient = createProductRestClient();
+        const client: ProductRestClient = createProductRestClient(options.productAuth);
 
         debug('Initializing Veeam Intelligence Service...');
         chat = createChatService(client);
@@ -154,7 +155,7 @@ export async function answerQuestion(question: string, options: AskOptions): Pro
         await chat.initialize();
 
         const outcome = await chat.sendMessage(question);
-        const result = await driveTurn(chat, outcome, options);
+        const result = await driveTurn(chat, client, outcome, options);
 
         debug('Answer: ' + result.message);
         debug('Artifacts: ' + JSON.stringify(result.artifacts));
@@ -182,6 +183,10 @@ export async function confirmAction(actionId: string, approve: boolean, options:
 
     pendingActions.delete(actionId);
 
+    if (options.productAuth !== undefined) {
+        entry.client.updateUserAuth(options.productAuth);
+    }
+
     if (!entry.chat.resolveConfirmation(actionId, approve)) {
         throw new Error(`Action "${actionId}" has already expired. The action was not executed.`);
     }
@@ -190,7 +195,7 @@ export async function confirmAction(actionId: string, approve: boolean, options:
 
     try {
         const outcome = await entry.chat.resume();
-        return await driveTurn(entry.chat, outcome, options);
+        return await driveTurn(entry.chat, entry.client, outcome, options);
     } catch (error: any) {
         entry.chat.disconnect();
         const errorMessage = error?.message || String(error);

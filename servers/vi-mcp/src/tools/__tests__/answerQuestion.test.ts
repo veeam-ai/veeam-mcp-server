@@ -10,6 +10,7 @@ import type { TurnOutcome } from '@/services/types';
 import type { ActionOutcome, ConfirmationDecision, ConfirmationRequest } from '@/actions/types';
 import type { Artifact } from '@/common/types';
 import { ChatbotMode } from '@/common/types';
+import type { ProductRestClient, ProductUserAuth } from '@/product';
 import { PendingActionRegistry } from '../pendingActions';
 
 // `@/config/settings` validates process.env at import time, so the modules under test are pulled in
@@ -120,8 +121,8 @@ function outcome(id: string, decision: ConfirmationDecision, executed: boolean):
 }
 
 /** Parks a confirmation in the session registry the way `driveTurn` does, without running a turn. */
-function park(chat: FakeChat, req: ConfirmationRequest): void {
-    registry.add({ request: req, chat: chat.asChatService });
+function park(chat: FakeChat, req: ConfirmationRequest, client = { updateUserAuth: jest.fn() }): void {
+    registry.add({ request: req, chat: chat.asChatService, client: client as unknown as ProductRestClient });
 }
 
 describe('pending action views', () => {
@@ -196,10 +197,12 @@ describe('confirmAction', () => {
     });
 
     it('rejects an unknown id and states that nothing ran', async () => {
-        await expect(tools.confirmAction('nope', true, { pendingActions: registry })).rejects.toThrow(
+        await expect(tools.confirmAction('nope', true, { pendingActions: registry, productAuth: undefined })).rejects.toThrow(
             /Unknown or expired action id "nope"/,
         );
-        await expect(tools.confirmAction('nope', true, { pendingActions: registry })).rejects.toThrow(/was not executed/);
+        await expect(tools.confirmAction('nope', true, { pendingActions: registry, productAuth: undefined })).rejects.toThrow(
+            /was not executed/,
+        );
     });
 
     it('rejects an id that expired before the decision arrived, and forgets it', async () => {
@@ -207,10 +210,24 @@ describe('confirmAction', () => {
         chat.resolvable = false;
         park(chat, request('a1'));
 
-        await expect(tools.confirmAction('a1', true, { pendingActions: registry })).rejects.toThrow(/already expired/);
+        await expect(tools.confirmAction('a1', true, { pendingActions: registry, productAuth: undefined })).rejects.toThrow(
+            /already expired/,
+        );
 
         expect(registry.get('a1')).toBeUndefined();
         expect(chat.resumes).toBe(0);
+    });
+
+    it("runs the approved action with the confirming request's Veeam token, not the one from when it was parked", async () => {
+        const chat = new FakeChat(complete('done'));
+        const client = { updateUserAuth: jest.fn() };
+        park(chat, request('a1'), client);
+        const productAuth: ProductUserAuth = { kind: 'token', token: { accessToken: 'renewed', expiresAt: Date.now() + 600_000 } };
+
+        await tools.confirmAction('a1', true, { pendingActions: registry, productAuth });
+
+        expect(client.updateUserAuth).toHaveBeenCalledWith(productAuth);
+        expect(chat.resumes).toBe(1);
     });
 
     it('approves the action, resumes the turn and returns the completed answer', async () => {
@@ -218,7 +235,7 @@ describe('confirmAction', () => {
         const chat = new FakeChat(complete('The job is running.', [artifact], [outcome('a1', 'approved', true)]));
         park(chat, request('a1'));
 
-        const result = await tools.confirmAction('a1', true, { pendingActions: registry });
+        const result = await tools.confirmAction('a1', true, { pendingActions: registry, productAuth: undefined });
 
         expect(chat.resolved).toEqual([{ id: 'a1', approve: true }]);
         expect(result.message).toBe('The job is running.');
@@ -233,7 +250,7 @@ describe('confirmAction', () => {
         const chat = new FakeChat(complete('Understood, I left the job alone.', [], [outcome('a1', 'declined', false)]));
         park(chat, request('a1'));
 
-        const result = await tools.confirmAction('a1', false, { pendingActions: registry });
+        const result = await tools.confirmAction('a1', false, { pendingActions: registry, productAuth: undefined });
 
         expect(chat.resolved).toEqual([{ id: 'a1', approve: false }]);
         expect(result.actions[0]?.executed).toBe(false);
@@ -244,7 +261,7 @@ describe('confirmAction', () => {
         const chat = new FakeChat(awaiting(followUp, 'First job done. ', [], [outcome('a1', 'approved', true)]));
         park(chat, request('a1'));
 
-        const result = await tools.confirmAction('a1', true, { pendingActions: registry });
+        const result = await tools.confirmAction('a1', true, { pendingActions: registry, productAuth: undefined });
 
         expect(result.message).toBe('First job done. ');
         expect(result.actions).toEqual([outcome('a1', 'approved', true)]);
@@ -263,7 +280,7 @@ describe('confirmAction', () => {
         const chat = new FakeChat(awaiting(followUp));
         park(chat, request('a1'));
 
-        await tools.confirmAction('a1', true, { pendingActions: registry });
+        await tools.confirmAction('a1', true, { pendingActions: registry, productAuth: undefined });
         expect(registry.get('a2')).toBeDefined();
 
         chat.settle('a2', 'expired');
@@ -289,7 +306,7 @@ describe('confirmAction', () => {
             return req.id !== 'a3';
         };
 
-        const result = await tools.confirmAction('a1', true, { pendingActions: registry, confirmationHandler });
+        const result = await tools.confirmAction('a1', true, { pendingActions: registry, productAuth: undefined, confirmationHandler });
 
         expect(asked).toEqual(['a2', 'a3']);
         expect(chat.resolved).toEqual([
@@ -313,7 +330,7 @@ describe('confirmAction', () => {
             throw new Error('client closed the elicitation');
         };
 
-        const result = await tools.confirmAction('a1', true, { pendingActions: registry, confirmationHandler });
+        const result = await tools.confirmAction('a1', true, { pendingActions: registry, productAuth: undefined, confirmationHandler });
 
         expect(chat.resolved).toContainEqual({ id: 'a2', approve: false });
         expect(result.message).toBe('Left it alone.');
@@ -325,7 +342,9 @@ describe('confirmAction', () => {
         chat.resumeError = new Error('socket closed');
         park(chat, request('a1'));
 
-        await expect(tools.confirmAction('a1', true, { pendingActions: registry })).rejects.toThrow(/Error occurred: socket closed/);
+        await expect(tools.confirmAction('a1', true, { pendingActions: registry, productAuth: undefined })).rejects.toThrow(
+            /Error occurred: socket closed/,
+        );
 
         expect(chat.disconnects).toBe(1);
     });

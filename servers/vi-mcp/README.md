@@ -129,37 +129,55 @@ set PRODUCT_NAME=vone && set WEB_URL=https://vone-server.local:1239/ && set ADMI
 
 Instead of each user starting a local process over `stdio`, the MCP server can run once as a network service and expose the MCP [Streamable HTTP](https://modelcontextprotocol.io/specification/2025-06-18/basic/transports#streamable-http) transport. MCP clients then connect by URL. `stdio` remains the default; HTTP is enabled with `MCP_TRANSPORT=http`.
 
+In HTTP mode there are **no shared Veeam credentials**: `ADMIN_USERNAME` and `ADMIN_PASSWORD` must not be set. Every user signs in with their own Veeam account, and the server works with that user's account and permissions. Choose how users sign in with `MCP_HTTP_AUTH`:
+
+| `MCP_HTTP_AUTH` | How users sign in | Trade-off |
+|---|---|---|
+| `basic` (default) | The user puts their Veeam user name and password in the MCP client, which sends them with every request (HTTP Basic). | Simplest to run; the password sits in the client configuration and travels with every request. |
+| `oauth` | The MCP client opens a sign-in page served by this server, the user enters the Veeam password once, and the client receives a short-lived token. | No password in any client configuration; needs a public URL and clients that support MCP OAuth (Claude Code, VS Code). |
+
+Either way the server stores no passwords.
+
 | Variable | Default | Description |
 |---|---|---|
 | `MCP_TRANSPORT` | `stdio` | `stdio` or `http` |
+| `MCP_HTTP_AUTH` | `basic` | `basic` or `oauth`, see above. |
 | `MCP_HTTP_HOST` | `127.0.0.1` | Interface to bind. Use `0.0.0.0` to accept connections from other machines. |
 | `MCP_HTTP_PORT` | `8080` | Port to listen on. The endpoint is `/mcp`; `/healthz` is an unauthenticated health probe. |
-| `MCP_HTTP_AUTH_TOKEN` | – | Bearer token clients must send (`Authorization: Bearer <token>`), at least 32 characters. **Required** unless the host is a loopback address. Generate one with `openssl rand -hex 32`. |
-| `MCP_HTTP_ALLOWED_HOSTS` | loopback names on a loopback bind, otherwise any | Comma-separated host names accepted in the `Host` and `Origin` headers (DNS rebinding protection), for example `mcp.company.local`. |
-| `MCP_HTTP_TLS_CERT_FILE`, `MCP_HTTP_TLS_KEY_FILE` | – | PEM certificate and key to serve HTTPS directly. Without them, put a TLS-terminating reverse proxy in front of the server. |
-| `MCP_HTTP_MAX_SESSIONS` | `100` | Maximum concurrent client sessions. |
+| `MCP_HTTP_TLS_CERT_FILE`, `MCP_HTTP_TLS_KEY_FILE` | – | PEM certificate and key to serve HTTPS directly. |
+| `MCP_HTTP_BEHIND_TLS_PROXY` | `false` | Set to `true` when a reverse proxy in front of the server terminates TLS. On a non-loopback address the server refuses to start without either this or a certificate, because passwords reach it over the network. |
+| `MCP_HTTP_TRUST_PROXY` | `1` with `MCP_HTTP_BEHIND_TLS_PROXY=true`, otherwise `0` | Number of reverse proxies in front of the server, so the login rate limits see the real client address from `X-Forwarded-For`. |
+| `MCP_HTTP_ALLOWED_HOSTS` | the `MCP_HTTP_PUBLIC_URL` host; otherwise loopback names on a loopback bind, otherwise any | Comma-separated host names accepted in the `Host` and `Origin` headers (DNS rebinding protection), for example `mcp.company.local`. |
+| `MCP_HTTP_MAX_SESSIONS` | `1000` | Maximum concurrent sessions in total. A session is one connected MCP client window, not one user, and it lasts while the client stays connected. This is a safety net for server memory, not a capacity plan. |
+| `MCP_HTTP_MAX_SESSIONS_PER_USER` | `10` | Maximum concurrent sessions of one Veeam user, so one user cannot take every session. Normal use is one session per open editor or Claude Code window. |
 | `MCP_HTTP_SESSION_IDLE_TIMEOUT_SEC` | `3600` | A session with no requests for this long is closed; the client re-initializes automatically. Must not be shorter than `ACTION_CONFIRMATION_TIMEOUT_SEC`. |
+
+#### Basic sign-in
 
 ```bash
 docker run -d --rm -p 8080:8080 \
   -e MCP_TRANSPORT=http \
   -e MCP_HTTP_HOST=0.0.0.0 \
-  -e MCP_HTTP_AUTH_TOKEN=<token> \
+  -e MCP_HTTP_TLS_CERT_FILE=/certs/server.crt \
+  -e MCP_HTTP_TLS_KEY_FILE=/certs/server.key \
+  -v /path/to/certs:/certs:ro \
   -e MCP_HTTP_ALLOWED_HOSTS=mcp.company.local \
   -e PRODUCT_NAME=vbr \
   -e WEB_URL=https://vbr-srv.local/ \
-  -e ADMIN_USERNAME=.\\administrator \
-  -e ADMIN_PASSWORD=password \
   veeam-intelligence-mcp-server
 ```
 
-Connect a client that supports remote MCP servers, for example Claude Code:
+The server checks each user name and password against the Veeam product. A successful check is remembered in memory for up to five minutes so the product is not asked on every request.
+
+The `Authorization` header value is `Basic ` followed by the Base64 encoding of `user:password`, for example `printf '%s' '.\jdoe:password' | base64`.
+
+Connect Claude Code:
 
 ```bash
-claude mcp add --transport http veeam-intelligence https://mcp.company.local:8080/mcp --header "Authorization: Bearer <token>"
+claude mcp add --transport http veeam-intelligence https://mcp.company.local:8080/mcp --header "Authorization: Basic <base64 of user:password>"
 ```
 
-or Visual Studio Code (`.vscode/mcp.json`):
+Claude Code stores this header in plain text in its configuration. In Visual Studio Code, let the editor prompt for it instead, so it is kept in the OS secret store (`.vscode/mcp.json`):
 
 ```json
 {
@@ -167,18 +185,68 @@ or Visual Studio Code (`.vscode/mcp.json`):
     "veeam-intelligence": {
       "type": "http",
       "url": "https://mcp.company.local:8080/mcp",
-      "headers": { "Authorization": "Bearer ${input:veeam-mcp-token}" }
+      "headers": { "Authorization": "Basic ${input:veeam-credentials}" }
     }
   },
-  "inputs": [{ "id": "veeam-mcp-token", "type": "promptString", "description": "Veeam Intelligence MCP token", "password": true }]
+  "inputs": [{ "id": "veeam-credentials", "type": "promptString", "description": "Base64 of your Veeam user:password", "password": true }]
 }
 ```
 
-Things to know before exposing the HTTP endpoint:
+#### OAuth sign-in
 
-- **One Veeam identity for everyone.** Every client that holds the token acts on the Veeam product as `ADMIN_USERNAME`. Use a dedicated account with the least privileges your use case needs, and treat the token like that account's password. Per-user identity (OAuth) is not supported yet.
-- **Sessions are isolated.** Each client connection is its own MCP session: actions proposed to one client cannot be listed or approved from another. Session state lives in memory, so if you run several replicas behind a load balancer, enable sticky sessions on the `Mcp-Session-Id` header.
-- **Use TLS** whenever the endpoint is reachable from other machines; otherwise the token travels in clear text.
+| Variable | Default | Description |
+|---|---|---|
+| `MCP_HTTP_PUBLIC_URL` | `http://localhost:<port>` on a loopback bind | Origin MCP clients use to reach the server, for example `https://mcp.company.local:8080`. **Required** off loopback; must be `https` unless it is `localhost`, and must not contain a path. |
+| `MCP_HTTP_TOKEN_SECRET` | random per start | At least 32 characters, used to encrypt the tokens handed to clients. Without it, sign-ins end when the server restarts and do not work across replicas. Generate one with `openssl rand -hex 32`. |
+| `MCP_HTTP_SIGN_IN_MAX_AGE_SEC` | `43200` | How long a sign-in can be renewed before the user must enter the Veeam password again. |
+| `MCP_HTTP_ALLOWED_REDIRECT_URIS` | – | Comma-separated OAuth redirect URIs accepted besides loopback ones, for example `https://vscode.dev/redirect` for VS Code for the Web. |
+
+```bash
+docker run -d --rm -p 8080:8080 \
+  -e MCP_TRANSPORT=http \
+  -e MCP_HTTP_AUTH=oauth \
+  -e MCP_HTTP_HOST=0.0.0.0 \
+  -e MCP_HTTP_PUBLIC_URL=https://mcp.company.local:8080 \
+  -e MCP_HTTP_TOKEN_SECRET=<output of openssl rand -hex 32> \
+  -e MCP_HTTP_TLS_CERT_FILE=/certs/server.crt \
+  -e MCP_HTTP_TLS_KEY_FILE=/certs/server.key \
+  -v /path/to/certs:/certs:ro \
+  -e PRODUCT_NAME=vbr \
+  -e WEB_URL=https://vbr-srv.local/ \
+  veeam-intelligence-mcp-server
+```
+
+How it works:
+
+1. The client connects without a token, gets `401` and discovers the sign-in endpoints from `/.well-known/oauth-protected-resource/mcp` and `/.well-known/oauth-authorization-server`.
+2. The client registers itself and opens the sign-in page in the browser. The page names the client and where it will be sent after sign-in.
+3. The user enters their Veeam user name and password. The server signs in to the Veeam product with them and never keeps the password.
+4. The client receives an access token that contains the user's Veeam token, encrypted with the server key. Client registrations, sign-in requests and codes are encrypted the same way, so the server keeps no sign-in state.
+5. When the Veeam token expires, the client renews its token and the server renews the Veeam token with the product's refresh token. If the product issues no refresh token, the user signs in again.
+
+Connect Claude Code; it runs the sign-in itself on first use (or from `/mcp`):
+
+```bash
+claude mcp add --transport http veeam-intelligence https://mcp.company.local:8080/mcp
+```
+
+Visual Studio Code (`.vscode/mcp.json`):
+
+```json
+{
+  "servers": {
+    "veeam-intelligence": { "type": "http", "url": "https://mcp.company.local:8080/mcp" }
+  }
+}
+```
+
+#### Things to know before exposing the HTTP endpoint
+
+- **Each user acts as themselves.** Tool calls reach the Veeam product with the caller's own account, and a session can only be used by the user (and, for Basic, the password) that opened it. Actions proposed to one session cannot be listed or approved from another.
+- **TLS is mandatory off loopback**, because passwords reach the server over the network. Never log the `Authorization` header in a reverse proxy.
+- **Failed sign-ins are rate limited** to 10 per client address per 15 minutes. Behind more than one proxy, set `MCP_HTTP_TRUST_PROXY` to their number, or users share an address. A user whose password is already verified is not locked out by failures from the same address. The limit is per address, so if users reach the server through a TCP load balancer or NAT that hides their addresses, they share one limit; prefer a proxy that sets `X-Forwarded-For`.
+- **Changing or disabling a Veeam account** takes effect within five minutes with Basic, and with OAuth once the current Veeam token expires and its renewal is refused.
+- **Sessions live in memory.** If you run several replicas behind a load balancer, enable sticky sessions on the `Mcp-Session-Id` header. With OAuth, also give all replicas the same `MCP_HTTP_TOKEN_SECRET`.
 - Clients that only launch local `stdio` servers (for example, Claude Desktop's `claude_desktop_config.json`) cannot connect to the HTTP endpoint directly; keep using `stdio` for them.
 
 ## Example usage with popular MCP clients

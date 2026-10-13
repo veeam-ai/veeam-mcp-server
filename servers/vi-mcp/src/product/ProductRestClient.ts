@@ -4,6 +4,7 @@
  */
 
 import { ServiceInfo, ChatBotAuthResponse, CommonInvokeConfig, ToolCallResult } from '@/common/types';
+import { ProductCredentials, ProductUserAuth, ProductUserToken } from './clients/types';
 
 export interface ProductRestClient {
     getServiceInfo(): Promise<ServiceInfo>;
@@ -14,4 +15,8 @@ export interface ProductRestClient {
      * envelope so the agent can relay them.
      */
     getToolCallData(config: CommonInvokeConfig): Promise<ToolCallResult>;
+    /** Signs the given product user in, regardless of the credentials the client was created with. */
+    requestUserToken(credentials: ProductCredentials): Promise<ProductUserToken>;
+    refreshUserToken(refreshToken: string): Promise<ProductUserToken>;
+    updateUserAuth(auth: ProductUserAuth): void;
 }
