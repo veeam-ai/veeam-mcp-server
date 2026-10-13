@@ -12,6 +12,7 @@ await esbuild.build({
     external: [
         '@modelcontextprotocol/sdk',
         'axios',
+        'express',
         'dotenv',
         'rxjs',
         'socket.io-client',

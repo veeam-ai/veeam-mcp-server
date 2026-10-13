@@ -5,26 +5,27 @@
 
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createMcpSession } from './mcp/session';
-import { LOOPBACK_HOSTS, settings } from './config/settings';
+import { settings } from './config/settings';
 import { httpServerOptionsFromSettings, startHttpServer } from './transports/http';
+import { productAuthOf } from './auth/identity';
+import { productAuthFromSettings } from './product';
 import { log } from './utils/logger';
 
 async function serveStdio(): Promise<void> {
-    const { server } = createMcpSession();
+    const { server } = createMcpSession(productAuthFromSettings);
     await server.connect(new StdioServerTransport());
     log.info('MCP server started on stdio; the chatbot mode is read from the Veeam product on every request');
 }
 
 async function serveHttp(): Promise<void> {
-    const options = httpServerOptionsFromSettings(settings, createMcpSession);
+    const options = httpServerOptionsFromSettings(settings, () => createMcpSession(productAuthOf));
     const running = await startHttpServer(options);
 
-    log.info(`MCP server listening on ${running.url}; the chatbot mode is read from the Veeam product on every request`);
-    if (options.authToken === undefined) {
-        log.warn('MCP_HTTP_AUTH_TOKEN is not set: any local process can use this endpoint');
-    }
-    if (options.tls === undefined && !LOOPBACK_HOSTS.includes(options.host.toLowerCase())) {
-        log.warn('TLS is not configured: the bearer token travels in clear text unless a TLS-terminating proxy is in front');
+    log.info(
+        `MCP server listening on ${running.url} (${settings.MCP_HTTP_AUTH} sign-in); every user signs in with their own Veeam account`,
+    );
+    if (settings.MCP_HTTP_AUTH === 'oauth' && settings.MCP_HTTP_TOKEN_SECRET === undefined) {
+        log.warn('MCP_HTTP_TOKEN_SECRET is not set: OAuth sign-ins end when the server restarts and do not work across replicas');
     }
 
     let stopping = false;

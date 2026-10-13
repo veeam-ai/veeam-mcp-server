@@ -5,21 +5,21 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { PendingActionRegistry } from '@/tools';
-import { registerTools } from './registerTools';
+import { ProductAuthResolver, registerTools } from './registerTools';
 
 export interface McpSession {
     server: McpServer;
     close(): Promise<void>;
 }
 
-export function createMcpSession(): McpSession {
+export function createMcpSession(resolveProductAuth: ProductAuthResolver): McpSession {
     const server = new McpServer({
         name: 'Veeam Intelligence',
         version: '1.0.0',
     });
     const pendingActions = new PendingActionRegistry();
 
-    registerTools(server, pendingActions);
+    registerTools(server, pendingActions, resolveProductAuth);
 
     return {
         server,

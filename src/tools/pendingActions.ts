@@ -4,11 +4,13 @@
  */
 
 import type { ChatService } from '@/services/chatService';
+import type { ProductRestClient } from '@/product';
 import { ConfirmationRequest } from '@/actions/types';
 
 export interface PendingActionEntry {
     request: ConfirmationRequest;
     chat: ChatService;
+    client: ProductRestClient;
 }
 
 export class PendingActionRegistry {
