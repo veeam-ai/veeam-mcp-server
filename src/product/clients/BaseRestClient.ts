@@ -4,7 +4,16 @@
  */
 
 import { ProductRestClient } from '../ProductRestClient';
-import { ProductAuthResponseUnifiedDate, ProductRestClientConfig, RequestConfig } from './types';
+import {
+    ProductAuthResponse,
+    ProductAuthResponseUnifiedDate,
+    ProductCredentials,
+    ProductRestClientConfig,
+    ProductUserAuth,
+    ProductUserToken,
+    RequestConfig,
+    USER_TOKEN_EXPIRY_SKEW_MS,
+} from './types';
 import { ServiceInfo, ChatBotAuthResponse, CommonInvokeConfig, ToolCallResult } from '@/common/types';
 import { createSortFindParams } from '@/utils';
 
@@ -16,12 +25,15 @@ import safeStringify from '@/utils/safeStringify';
 export abstract class BaseRestClient implements ProductRestClient {
     protected readonly config: ProductRestClientConfig;
     protected readonly client: AxiosInstance;
+    protected abstract readonly userTokenPath: string;
 
     private accessToken: string | null = null;
     private tokenExpirationTime: number | null = null;
+    private auth: ProductUserAuth | undefined;
 
     constructor(config: ProductRestClientConfig) {
         this.config = config;
+        this.auth = config.auth;
 
         const httpsAgent = new https.Agent({
             rejectUnauthorized: !this.config.acceptSelfSignedCert,
@@ -37,7 +49,65 @@ export abstract class BaseRestClient implements ProductRestClient {
 
     abstract getServiceInfo(): Promise<ServiceInfo>;
     abstract authenticateChatService(): Promise<ChatBotAuthResponse>;
-    protected abstract authenticateProductRest(): Promise<ProductAuthResponseUnifiedDate>;
+    protected abstract authenticateProductRest(renewUserToken: boolean): Promise<ProductAuthResponseUnifiedDate>;
+
+    async requestUserToken({ username, password }: ProductCredentials): Promise<ProductUserToken> {
+        return this.postTokenGrant({ grant_type: 'password', username, password });
+    }
+
+    async refreshUserToken(refreshToken: string): Promise<ProductUserToken> {
+        return this.postTokenGrant({ grant_type: 'refresh_token', refresh_token: refreshToken });
+    }
+
+    private async postTokenGrant(grant: Record<string, string>): Promise<ProductUserToken> {
+        const response = await this.client.post<ProductAuthResponse>(
+            mergeUrlParts(this.config.baseURL, this.userTokenPath),
+            new URLSearchParams(grant).toString(),
+            { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+        );
+
+        const { access_token, refresh_token, expires_in } = response.data;
+        return { accessToken: access_token, refreshToken: refresh_token, expiresAt: Date.now() + expires_in * 1000 };
+    }
+
+    updateUserAuth(auth: ProductUserAuth): void {
+        const current = this.auth;
+        if (current?.kind === 'token' && auth.kind === 'token' && current.token.expiresAt > auth.token.expiresAt) {
+            this.auth = { ...auth, token: current.token };
+            return;
+        }
+        this.auth = auth;
+    }
+
+    protected async currentUserToken(forceRenewal = false): Promise<ProductUserToken> {
+        const auth = this.auth;
+        if (auth === undefined) {
+            throw new Error('No Veeam credentials are available for this request');
+        }
+        if (auth.kind === 'password') {
+            return this.requestUserToken(auth.credentials);
+        }
+
+        const current = auth.token;
+        if (!forceRenewal && current.expiresAt - USER_TOKEN_EXPIRY_SKEW_MS > Date.now()) {
+            return current;
+        }
+
+        let renewed: ProductUserToken;
+        if (auth.renew !== undefined) {
+            renewed = await auth.renew(current);
+        } else if (current.refreshToken !== undefined) {
+            renewed = await this.refreshUserToken(current.refreshToken);
+        } else {
+            throw new Error('The Veeam sign-in has expired. Sign in again from the MCP client.');
+        }
+
+        const token = { ...renewed, refreshToken: renewed.refreshToken ?? current.refreshToken };
+        if (this.auth === auth) {
+            this.auth = { ...auth, token };
+        }
+        return token;
+    }
 
     async getToolCallData(config: CommonInvokeConfig): Promise<ToolCallResult> {
         if (config.tool_name !== 'fetch_data_from_endpoint') {
@@ -129,7 +199,7 @@ export abstract class BaseRestClient implements ProductRestClient {
             return response;
         }
 
-        await this.authenticate();
+        await this.authenticate(true);
         this.applyAuthHeader(headers);
         return send();
     }
@@ -157,7 +227,7 @@ export abstract class BaseRestClient implements ProductRestClient {
         } catch (error: any) {
             // Handle 401 - retry with new token
             if (error.response?.status === 401) {
-                await this.authenticate();
+                await this.authenticate(true);
                 this.applyAuthHeader(headers);
                 const retryResponse = await this.client.request<T>({
                     method: config.method,
@@ -194,9 +264,9 @@ export abstract class BaseRestClient implements ProductRestClient {
         return Date.now() + bufferTimeMS >= this.tokenExpirationTime;
     }
 
-    private async authenticate(): Promise<void> {
+    private async authenticate(renewUserToken = false): Promise<void> {
         try {
-            const data = await this.authenticateProductRest();
+            const data = await this.authenticateProductRest(renewUserToken);
             this.accessToken = data.access_token;
             this.tokenExpirationTime = data.valid_until;
         } catch (error: any) {
@@ -223,7 +293,10 @@ export abstract class BaseRestClient implements ProductRestClient {
             } else if (error.response) {
                 errorMessage += ` ${error.response.status} ${error.response.statusText}`;
             } else if (error.message && error.message.toLowerCase().includes('authentication failed')) {
-                errorMessage += ' Please verify that ADMIN_USERNAME and ADMIN_PASSWORD are correct.';
+                errorMessage +=
+                    this.auth?.kind === 'password'
+                        ? ' Please verify that ADMIN_USERNAME and ADMIN_PASSWORD are correct.'
+                        : ' Sign in again from the MCP client.';
             }
 
             throw new Error(errorMessage, { cause: error });
