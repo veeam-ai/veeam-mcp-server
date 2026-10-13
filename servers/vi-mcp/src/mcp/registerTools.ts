@@ -5,6 +5,7 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { RequestId } from '@modelcontextprotocol/sdk/types.js';
+import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 import { z } from 'zod';
 import { answerQuestion, confirmAction, listPendingActions, AskResult, ConfirmationHandler, PendingActionRegistry } from '@/tools';
 import { createToolMetadata } from './toolFactory';
@@ -12,6 +13,9 @@ import { ChatbotMode } from '@/common/types';
 import { ConfirmationRequest } from '@/actions/types';
 import { settings } from '@/config/settings';
 import { log } from '@/utils/logger';
+import type { ProductUserAuth } from '@/product';
+
+export type ProductAuthResolver = (authInfo: AuthInfo | undefined) => ProductUserAuth | undefined;
 
 export const TOOL_NAMES = {
     answer: 'veeam-question-answering',
@@ -135,7 +139,7 @@ function createElicitationHandler(server: McpServer, relatedRequestId: RequestId
  * never depends on the product being reachable at startup. The confirmation tools are harmless
  * when the product is not in AdvancedWithActions mode: nothing is ever parked for them to act on.
  */
-export function registerTools(server: McpServer, pendingActions: PendingActionRegistry): void {
+export function registerTools(server: McpServer, pendingActions: PendingActionRegistry, resolveProductAuth: ProductAuthResolver): void {
     const { title, description } = createToolMetadata();
 
     server.registerTool(
@@ -158,6 +162,7 @@ export function registerTools(server: McpServer, pendingActions: PendingActionRe
         async ({ question }, extra) => {
             const result = await answerQuestion(question, {
                 pendingActions,
+                productAuth: resolveProductAuth(extra.authInfo),
                 confirmationHandler: createElicitationHandler(server, extra.requestId),
             });
             return toToolResult(result);
@@ -188,6 +193,7 @@ export function registerTools(server: McpServer, pendingActions: PendingActionRe
         async ({ action_id, approve }, extra) => {
             const result = await confirmAction(action_id, approve, {
                 pendingActions,
+                productAuth: resolveProductAuth(extra.authInfo),
                 confirmationHandler: createElicitationHandler(server, extra.requestId),
             });
             return toToolResult(result);

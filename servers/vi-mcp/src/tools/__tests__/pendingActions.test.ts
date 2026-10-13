@@ -7,6 +7,7 @@ import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 
 import { PendingActionRegistry } from '../pendingActions';
 import type { ChatService } from '@/services/chatService';
+import type { ProductRestClient } from '@/product';
 import { ConfirmationRequest } from '@/actions/types';
 
 function request(id: string, overrides: Partial<ConfirmationRequest> = {}): ConfirmationRequest {
@@ -24,6 +25,7 @@ function request(id: string, overrides: Partial<ConfirmationRequest> = {}): Conf
 
 /** The registry only ever stores the chat; it never calls into it. */
 const chat = {} as ChatService;
+const client = {} as ProductRestClient;
 
 describe('PendingActionRegistry', () => {
     let registry: PendingActionRegistry;
@@ -38,7 +40,7 @@ describe('PendingActionRegistry', () => {
     });
 
     it('stores an entry under its request id and hands back the same object', () => {
-        const entry = { request: request('a'), chat };
+        const entry = { request: request('a'), chat, client };
         registry.add(entry);
 
         expect(registry.size).toBe(1);
@@ -46,9 +48,9 @@ describe('PendingActionRegistry', () => {
     });
 
     it('lists requests in insertion order', () => {
-        registry.add({ request: request('a'), chat });
-        registry.add({ request: request('b'), chat });
-        registry.add({ request: request('c'), chat });
+        registry.add({ request: request('a'), chat, client });
+        registry.add({ request: request('b'), chat, client });
+        registry.add({ request: request('c'), chat, client });
 
         expect(registry.list().map((r) => r.id)).toEqual(['a', 'b', 'c']);
     });
@@ -66,7 +68,7 @@ describe('PendingActionRegistry', () => {
     });
 
     it('deletes a known entry and reports whether anything was removed', () => {
-        registry.add({ request: request('a'), chat });
+        registry.add({ request: request('a'), chat, client });
 
         expect(registry.delete('a')).toBe(true);
         expect(registry.delete('a')).toBe(false);
@@ -83,9 +85,9 @@ describe('PendingActionRegistry', () => {
         const disconnect = jest.fn();
         const shared = { disconnect } as unknown as ChatService;
         const other = { disconnect } as unknown as ChatService;
-        registry.add({ request: request('a'), chat: shared });
-        registry.add({ request: request('b'), chat: shared });
-        registry.add({ request: request('c'), chat: other });
+        registry.add({ request: request('a'), chat: shared, client });
+        registry.add({ request: request('b'), chat: shared, client });
+        registry.add({ request: request('c'), chat: other, client });
 
         registry.abandonAll();
 

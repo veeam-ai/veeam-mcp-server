@@ -23,14 +23,13 @@ let nextOutcome: unknown;
 const getServiceInfo = jest.fn();
 const chatServiceCtor = jest.fn();
 const chatDisconnect = jest.fn();
-
-jest.unstable_mockModule('@/product/ProductClientFactory', () => ({
-    createProductRestClient: () => ({
-        getServiceInfo,
-        authenticateChatService: jest.fn(),
-        getToolCallData: jest.fn(),
-    }),
+const createProductRestClient = jest.fn((_auth?: unknown) => ({
+    getServiceInfo,
+    authenticateChatService: jest.fn(),
+    getToolCallData: jest.fn(),
 }));
+
+jest.unstable_mockModule('@/product/ProductClientFactory', () => ({ createProductRestClient, productAuthFromSettings: () => undefined }));
 
 jest.unstable_mockModule('@/services/chatService', () => ({
     ChatService: class {
@@ -64,6 +63,7 @@ jest.unstable_mockModule('@/services/chatService', () => ({
 }));
 
 const { registerTools, TOOL_NAMES, BASE_MODE_WARNING } = await import('@/mcp/registerTools');
+const noProductAuth = () => undefined;
 const { createMcpSession } = await import('@/mcp/session');
 const { PendingActionRegistry } = await import('@/tools');
 
@@ -78,7 +78,7 @@ async function connect(server: McpServer, capabilities: Record<string, unknown> 
 
 async function connectedClient(): Promise<Client> {
     const server = new McpServer({ name: 'test-server', version: '0.0.0' });
-    registerTools(server, new PendingActionRegistry());
+    registerTools(server, new PendingActionRegistry(), noProductAuth);
     return connect(server);
 }
 
@@ -158,7 +158,7 @@ describe('registerTools', () => {
         currentMode = 'AdvancedWithActions';
         nextOutcome = awaitingConfirmation('a1');
         const server = new McpServer({ name: 'test-server', version: '0.0.0' });
-        registerTools(server, new PendingActionRegistry());
+        registerTools(server, new PendingActionRegistry(), noProductAuth);
         const elicitInput = jest.spyOn(server.server, 'elicitInput');
         const client = await connect(server, { elicitation: { form: {} } });
         client.setRequestHandler(ElicitRequestSchema, async () => ({ action: 'accept', content: {} }));
@@ -168,6 +168,20 @@ describe('registerTools', () => {
         expect(result.structuredContent).toMatchObject({ message: 'done' });
         expect(elicitInput).toHaveBeenCalledTimes(1);
         expect(elicitInput.mock.calls[0][1]?.relatedRequestId).toEqual(expect.anything());
+    });
+
+    it("talks to the product with the caller's Veeam account resolved from the request", async () => {
+        const productAuth = { kind: 'password' as const, credentials: { username: 'alice', password: 'pw' } };
+        const resolveProductAuth = jest.fn(() => productAuth);
+        const server = new McpServer({ name: 'test-server', version: '0.0.0' });
+        registerTools(server, new PendingActionRegistry(), resolveProductAuth);
+        const client = await connect(server);
+        createProductRestClient.mockClear();
+
+        await client.callTool({ name: TOOL_NAMES.answer, arguments: { question: 'q' } });
+
+        expect(resolveProductAuth).toHaveBeenCalledTimes(1);
+        expect(createProductRestClient).toHaveBeenCalledWith(productAuth);
     });
 
     it('answers list-pending-actions with an empty list when nothing is parked', async () => {
@@ -187,8 +201,8 @@ describe('createMcpSession', () => {
     });
 
     it('keeps actions parked in one session invisible and unconfirmable from another', async () => {
-        const first = createMcpSession();
-        const second = createMcpSession();
+        const first = createMcpSession(noProductAuth);
+        const second = createMcpSession(noProductAuth);
         const firstClient = await connect(first.server);
         const secondClient = await connect(second.server);
 
@@ -213,7 +227,7 @@ describe('createMcpSession', () => {
     });
 
     it('disconnects every parked Veeam Intelligence turn when the session closes', async () => {
-        const session = createMcpSession();
+        const session = createMcpSession(noProductAuth);
         const client = await connect(session.server);
 
         nextOutcome = awaitingConfirmation('a1');
