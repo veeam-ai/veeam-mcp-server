@@ -1,0 +1,140 @@
+[project]
+name = "vbr-mcp"
+version = "0.1.0"
+description = "MCP server exposing the Veeam Backup & Replication (VBR) REST API to MCP clients"
+readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Veeam Software" }]
+requires-python = ">=3.13,<3.14"
+keywords = [
+    "veeam",
+    "vbr",
+    "backup",
+    "disaster-recovery",
+    "mcp",
+    "model-context-protocol",
+    "llm",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: System Administrators",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: System :: Archiving :: Backup",
+    "Topic :: System :: Systems Administration",
+]
+dependencies = [
+    "fastmcp>=4.1,<5",
+    "httpx>=0.27.0",
+    "pydantic>=2.10.6",
+    "pydantic-settings>=2.7.1",
+    "python-dotenv>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/veeam-ai/vbr-mcp"
+Repository = "https://github.com/veeam-ai/vbr-mcp"
+Issues = "https://github.com/veeam-ai/vbr-mcp/issues"
+
+[project.scripts]
+vbr-mcp = "vbr_mcp:main"
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.5",
+    "ty>=0.0.21",
+]
+test = [
+    "pytest>=8.3.3",
+    "pytest-asyncio>=0.24.0",
+    "pytest-env>=1.1.5",
+    "pytest-httpx>=0.35.0",
+    "pytest-mock>=3.14.0",
+    "pytest-cov>=6.0.0",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/vbr_mcp"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py313"
+
+# Enabled only for CPY001 (copyright headers), which is still a preview rule.
+# explicit-preview-rules keeps every other preview rule off, so the prefix
+# selectors below do not silently grow when ruff promotes new rules.
+preview = true
+
+line-length = 120
+indent-width = 4
+
+[tool.ruff.lint]
+explicit-preview-rules = true
+select = [
+    "C", "E", "F", "W",  # flake8 setup
+    "I",  # isort
+    "D",  # Doc strings standarisation
+    "ANN204",  # Adds missing standardised type hints
+    "COM",  # Fix commas - diff minimalisation technique
+    "CPY001",  # Every file must carry the Veeam copyright header
+    "EXE",  # Checks for forgottent scripts
+    "INP",  # Detects missing __init__.py files
+    "ISC",  # Simplifies string constants
+    "NPY", "PD",  # Big computation libraries - Pandas, Numpy
+    "PT",  # pytest linter
+    "RUF",  # Removing outdated ignores
+    "RSE",  # Standardise exceptions
+    "UP",  # Keep up with latest Python
+    "T",  # No prints in codebase
+    "N",  # Checks naming conventions
+]
+ignore = [
+    "COM812", # Trailing comma check. Conflicts with formatter
+    "D1",     # All missing docstring somewhere messages
+    "E501",   # Line too long - formatted by formatter
+    "D203",   # Incompatibility warning for D203 and D211
+    "D213",   # Incompatibility warning for D213 and D212
+    "N805",   # Pydantic root_validator needs cls argument, but ruff forces self
+    "PT011",  # Ignore "too broad exception" in pytest tests
+    "PT003",  # Ignore "`scope='function'` is implied" in pytest tests
+    "D401",   # Ignore imperative style function description
+    "RUF012", # Ignore warning of mutable defaults in pydantic subclasses (https://github.com/astral-sh/ruff/issues/5639)
+]
+
+# These are lint settings, not per-file ignores - they must stay above the
+# [tool.ruff.lint.*] sub-tables or TOML assigns them to the wrong table.
+fixable = ["ALL"]
+unfixable = []
+
+[tool.ruff.lint.flake8-copyright]
+notice-rgx = "# Copyright © Veeam Software Group GmbH\\."
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["T201", "F841"]
+"scripts/**" = ["T201", "F841"]
+# Field names mirror the VBR API's camelCase JSON so bodies serialize without aliases.
+"src/vbr_mcp/models/*.py" = ["N815"]
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["pydantic.validator"]
+
+[tool.ty.src]
+# Standalone uv script / project with its own dependencies - not part of this project's venv.
+exclude = ["scripts", "integration_tests"]
+
+[tool.pytest.ini_options]
+# integration_tests/ is a separate uv project (the eval and its VBR mock) with its own venv.
+addopts = "--ignore=integration_tests"
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+env = [
+    "ENV_FILE_OVERRIDE=.env.test",
+]
+
+[tool.coverage.run]
+source = ["src"]
+omit = ["tests/*"]

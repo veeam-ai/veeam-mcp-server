@@ -1,0 +1,48 @@
+# The build context is the repository root, but the image only needs pyproject.toml,
+# uv.lock, README.md, LICENSE and src/. Everything below would otherwise be shipped to
+# the Docker daemon on every build - including the local .venv and a real .env.
+
+# Secrets and local configuration
+.env
+.env.*
+!.env.example
+
+# Virtual environments and dependency trees
+.venv/
+node_modules/
+
+# Version control and IDE state
+.git/
+.gitignore
+.github/
+.idea/
+.vscode/
+
+# Caches and build output
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.ty_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*tests_results.xml
+dist/
+build/
+*.egg-info/
+
+# Scratch space, tests and docs - not part of the runtime image
+.temp/
+tests/
+scripts/
+docker/
+Makefile
+SECURITY.md
+
+# Certificates and logs
+*.pem
+*.log
+.DS_Store

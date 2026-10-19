@@ -1,0 +1,49 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Test and coverage reports
+.coverage
+.coverage.*
+.cache
+coverage.xml
+htmlcov/
+.pytest_cache/
+*tests_results.xml
+
+# Environments
+# Glob rather than the exact name: .env.test (which pytest points at via
+# ENV_FILE_OVERRIDE) and .env.local are just as secret as .env itself.
+.env*
+!.env.example
+!.env.test.example
+.venv
+
+# Build output
+dist/
+build/
+*.egg-info/
+
+# ruff
+.ruff_cache
+
+# ty / mypy
+.mypy_cache/
+.ty_cache/
+
+# Scratch space for swagger dumps, notes and other throwaway files
+.temp/
+
+# Logs
+*.log
+
+# MAC
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+
+# Cert
+*.pem

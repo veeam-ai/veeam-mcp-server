@@ -1,0 +1,38 @@
+[project]
+name = "vbr-mcp-integration-tests"
+version = "0.1.0"
+description = "Pydantic AI agent driving a running vbr-mcp server end to end"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "azure-identity>=1.19",
+    "cryptography>=43",
+    "fastapi>=0.143.0",
+    "pydantic-ai-slim[openai,mcp]>=2.54",
+    "pydantic-evals[logfire]>=2.54",
+    "pydantic-settings>=2.7",
+    "uvicorn>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "ruff>=0.15.5",
+    "ty>=0.0.21",
+]
+
+[tool.uv]
+# A set of scripts, not an installable package.
+package = false
+
+[tool.ruff]
+target-version = "py313"
+# Enabled only for CPY001 (copyright headers), which is still a preview rule.
+preview = true
+line-length = 120
+
+[tool.ruff.lint]
+explicit-preview-rules = true
+select = ["C", "E", "F", "W", "I", "D", "ANN204", "COM", "CPY001", "ISC", "RUF", "RSE", "UP", "T", "N"]
+ignore = ["COM812", "D1", "E501", "D203", "D213", "D401"]
+
+[tool.ruff.lint.flake8-copyright]
+notice-rgx = "# Copyright © Veeam Software Group GmbH\\."
