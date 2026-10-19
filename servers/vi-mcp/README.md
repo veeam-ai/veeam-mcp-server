@@ -54,7 +54,7 @@ Veeam Intelligence MCP Server delivers cross-product, operational intelligence w
 
 ```bash
 git clone https://github.com/veeam-ai/veeam-mcp-server
-cd veeam-mcp-server
+cd veeam-mcp-server/servers/vi-mcp
 ```
 
 ### 2. Gather credentials and connection details
@@ -78,7 +78,7 @@ Paste these values directly into the MCP client, such as Visual Studio Code or C
 
 #### 1. Build the Docker image
 
-Before using the Veeam Intelligence MCP server, build the Docker image:
+Before using the Veeam Intelligence MCP server, build the Docker image. Run these commands from the `servers/vi-mcp` directory:
 
 ```bash
 # Option 1: Using make
@@ -108,21 +108,21 @@ Set up your MCP client to start the MCP server using `stdio` transport.
 
 #### Store secrets in a `.env` file
 
-1. In the MCP repository root, copy `.env.example` to `.env` and populate the values.
+1. In the `servers/vi-mcp` directory, copy `.env.example` to `.env` and populate the values.
 2. Configure your MCP client to run the server as follows:
 
 ```bash
-npm start --prefix ~/path/to/mcp/server
+npm start --prefix ~/path/to/veeam-mcp-server/servers/vi-mcp
 ```
 
 #### Alternatively, pass secrets on the command line
 
 ```bash
 # On Mac/Linux
-PRODUCT_NAME=vone WEB_URL=https://vone-server.local:1239/ ADMIN_USERNAME=.\\administrator ADMIN_PASSWORD=password ACCEPT_SELF_SIGNED_CERT=true npm start --silent --prefix ~/path/to/mcp/server
+PRODUCT_NAME=vone WEB_URL=https://vone-server.local:1239/ ADMIN_USERNAME=.\\administrator ADMIN_PASSWORD=password ACCEPT_SELF_SIGNED_CERT=true npm start --silent --prefix ~/path/to/veeam-mcp-server/servers/vi-mcp
 
 # On Windows
-set PRODUCT_NAME=vone && set WEB_URL=https://vone-server.local:1239/ && set ADMIN_USERNAME=.\\administrator && set ADMIN_PASSWORD=password && set ACCEPT_SELF_SIGNED_CERT=true && npm start --silent --prefix c:\\path\\to\\mcp\\server
+set PRODUCT_NAME=vone && set WEB_URL=https://vone-server.local:1239/ && set ADMIN_USERNAME=.\\administrator && set ADMIN_PASSWORD=password && set ACCEPT_SELF_SIGNED_CERT=true && npm start --silent --prefix c:\\path\\to\\veeam-mcp-server\\servers\\vi-mcp
 ```
 
 ## Example usage with popular MCP clients
@@ -174,7 +174,7 @@ For help locating the Claude Desktop MCP configuration file, see the Model Conte
         "start",
         "--silent",
         "--prefix",
-        "/path/to/mcp/server"
+        "/path/to/veeam-mcp-server/servers/vi-mcp"
       ],
       "env": {
         "PRODUCT_NAME": "vone",
@@ -320,7 +320,7 @@ mkdir -p .vscode
         "start",
         "--silent",
         "--prefix",
-        "~/path/to/mcp/server"
+        "~/path/to/veeam-mcp-server/servers/vi-mcp"
       ],
       "env": {
         "PRODUCT_NAME": "${input:product-name}",

@@ -6,6 +6,10 @@ on:
       - main
   workflow_dispatch:
 
+defaults:
+  run:
+    working-directory: servers/vi-mcp
+
 jobs: 
   lint-and-quality:
     name: Code Quality
@@ -16,6 +20,7 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
+          cache-dependency-path: servers/vi-mcp/package-lock.json
       - run: npm ci
       - name: Run CI checks (Lint/Prettier)
         run: npm run ci
@@ -29,6 +34,7 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
+          cache-dependency-path: servers/vi-mcp/package-lock.json
       - run: npm ci
       - name: Run tests
         run: npm test
@@ -42,6 +48,7 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
+          cache-dependency-path: servers/vi-mcp/package-lock.json
       - run: npm ci
       - name: Build
         run: npm run build
@@ -55,6 +62,7 @@ jobs:
         with:
           node-version: '24'
           cache: 'npm'
+          cache-dependency-path: servers/vi-mcp/package-lock.json
       - run: npm ci
       - name: Run audit
         run: npm run audit
