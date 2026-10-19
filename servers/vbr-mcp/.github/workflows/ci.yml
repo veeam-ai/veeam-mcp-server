@@ -1,0 +1,75 @@
+name: Pull Request Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+# Read-only by default: nothing here needs to write to the repository.
+permissions:
+  contents: read
+
+jobs:
+  lint-and-quality:
+    name: Code Quality
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+      - name: Run quality checks (ruff format + lint)
+        run: make quality-check
+
+  typecheck:
+    name: Type Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+      - name: Run type checker
+        run: make typecheck
+
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+      - name: Run tests
+        run: make test
+
+  config-drift:
+    name: Config Drift
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv sync --all-groups
+      - name: Check .env.example is in sync with the settings classes
+        run: make check-env-example
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - name: Build sdist and wheel
+        run: uv build
+      # Runs on a clean public runner with no access to any internal network, so this
+      # job is what catches an internal base image or CA host creeping back in.
+      - name: Build container image
+        run: docker build -f docker/Dockerfile -t vbr-mcp:ci .
