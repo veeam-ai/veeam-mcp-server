@@ -1,4 +1,4 @@
-# BUILD CONTEXT MUST BE THE REPOSITORY ROOT
+# BUILD CONTEXT MUST BE THE PROJECT ROOT (servers/vbr-mcp)
 
 ARG PYTHON_VERSION=3.13
 
@@ -33,7 +33,7 @@ FROM ${BASE_IMAGE} AS runtime
 
 LABEL org.opencontainers.image.title="vbr-mcp" \
       org.opencontainers.image.description="MCP server exposing the Veeam Backup & Replication REST API to MCP clients" \
-      org.opencontainers.image.source="https://github.com/veeam-ai/vbr-mcp" \
+      org.opencontainers.image.source="https://github.com/veeam-ai/veeam-mcp-server" \
       org.opencontainers.image.licenses="MIT"
 
 RUN adduser --disabled-password --gecos '' -u 10001 vbrmcp

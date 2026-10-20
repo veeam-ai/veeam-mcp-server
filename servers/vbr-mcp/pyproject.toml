@@ -32,9 +32,9 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/veeam-ai/vbr-mcp"
-Repository = "https://github.com/veeam-ai/vbr-mcp"
-Issues = "https://github.com/veeam-ai/vbr-mcp/issues"
+Homepage = "https://github.com/veeam-ai/veeam-mcp-server/tree/main/servers/vbr-mcp"
+Repository = "https://github.com/veeam-ai/veeam-mcp-server"
+Issues = "https://github.com/veeam-ai/veeam-mcp-server/issues"
 
 [project.scripts]
 vbr-mcp = "vbr_mcp:main"
