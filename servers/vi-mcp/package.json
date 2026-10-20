@@ -17,7 +17,7 @@
         "format": "prettier --log-level warn --write \"src/**/*.{ts,js,json}\" ",
         "typecheck": "tsc --noEmit",
         "audit:security": "npm audit",
-        "audit:deps": "depcheck",
+        "audit:deps": "knip --dependencies",
         "audit": "npm run audit:security && npm run audit:deps",
         "ci": "npm run format:check && npm run lint && npm run typecheck && echo \"\n✅ [PASSED]: All quality checks complete.\"",
         "ci:full": "npm run ci && npm test && npm run build && npm run audit && echo \"\n🚀 [PASSED]: Full CI complete.\"",
@@ -43,7 +43,7 @@
         "npm": ">=10.0.0"
     },
     "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.30.0",
+        "@modelcontextprotocol/sdk": "^1.32.1",
         "axios": "^1.20.0",
         "rxjs": "7.8.2",
         "socket.io-client": "^4.8.3",
@@ -55,17 +55,21 @@
         "@jest/globals": "^30.5.1",
         "@types/jest": "^30.0.0",
         "@types/node": "^24.13.5",
-        "depcheck": "^1.4.7",
         "esbuild": "^0.28.2",
         "eslint": "^10.10.0",
         "eslint-config-prettier": "^10.1.8",
         "eslint-plugin-license-header": "^0.9.0",
         "jest": "^30.5.1",
+        "knip": "^6.42.1",
         "prettier": "^3.9.6",
         "socket.io": "^4.8.3",
-        "ts-jest": "^29.4.12",
-        "ts-node": "10.9.2",
+        "ts-jest": "^29.4.15",
         "typescript": "5.9.3",
         "typescript-eslint": "^8.70.0"
+    },
+    "overrides": {
+        "@istanbuljs/load-nyc-config": {
+            "js-yaml": "^4.3.2"
+        }
     }
 }
