@@ -1,6 +1,6 @@
-# The build context is the repository root, but the image only needs pyproject.toml,
-# uv.lock, README.md, LICENSE and src/. Everything below would otherwise be shipped to
-# the Docker daemon on every build - including the local .venv and a real .env.
+# The build context is the project root (servers/vbr-mcp), but the image only needs
+# pyproject.toml, uv.lock, README.md, LICENSE and src/. Everything below would otherwise be
+# shipped to the Docker daemon on every build - including the local .venv and a real .env.
 
 # Secrets and local configuration
 .env

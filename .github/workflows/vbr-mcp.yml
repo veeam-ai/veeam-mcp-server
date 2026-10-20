@@ -1,4 +1,4 @@
-name: Pull Request Validation
+name: VBR MCP Pull Request Validation
 
 on:
   pull_request:
@@ -10,63 +10,72 @@ on:
 permissions:
   contents: read
 
+defaults:
+  run:
+    working-directory: servers/vbr-mcp
+
 jobs:
   lint-and-quality:
-    name: Code Quality
+    name: VBR MCP Code Quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: servers/vbr-mcp/uv.lock
       - run: uv sync --all-groups
       - name: Run quality checks (ruff format + lint)
         run: make quality-check
 
   typecheck:
-    name: Type Check
+    name: VBR MCP Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: servers/vbr-mcp/uv.lock
       - run: uv sync --all-groups
       - name: Run type checker
         run: make typecheck
 
   unit-tests:
-    name: Unit Tests
+    name: VBR MCP Unit Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: servers/vbr-mcp/uv.lock
       - run: uv sync --all-groups
       - name: Run tests
         run: make test
 
   config-drift:
-    name: Config Drift
+    name: VBR MCP Config Drift
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: servers/vbr-mcp/uv.lock
       - run: uv sync --all-groups
       - name: Check .env.example is in sync with the settings classes
         run: make check-env-example
 
   build:
-    name: Build
+    name: VBR MCP Build
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
+          cache-dependency-glob: servers/vbr-mcp/uv.lock
       - name: Build sdist and wheel
         run: uv build
       # Runs on a clean public runner with no access to any internal network, so this

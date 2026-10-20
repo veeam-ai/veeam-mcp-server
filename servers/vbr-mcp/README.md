@@ -57,15 +57,16 @@ See [SECURITY.md](SECURITY.md) for the full security model and how to report a v
 ## Setup
 
 ```
-git clone https://github.com/veeam-ai/vbr-mcp.git
-cd vbr-mcp
+git clone https://github.com/veeam-ai/veeam-mcp-server
+cd veeam-mcp-server/servers/vbr-mcp
 uv sync --all-groups
 ```
 
 ### Configuration
 
-Copy `.env.example` to `.env` and fill in the VBR connection details (`VBR_BASE_URL`,
-`VBR_USERNAME`, `VBR_PASSWORD`, and `VBR_VERIFY_TLS=False` for self-signed lab certificates).
+In the `servers/vbr-mcp` directory, copy `.env.example` to `.env` and fill in the VBR connection
+details (`VBR_BASE_URL`, `VBR_USERNAME`, `VBR_PASSWORD`, and `VBR_VERIFY_TLS=False` for
+self-signed lab certificates).
 
 `.env` is resolved relative to this project's own location, so the server finds it regardless
 of the working directory it is launched from — which matters because MCP clients spawn the
@@ -90,16 +91,16 @@ npx @modelcontextprotocol/inspector uv run vbr-mcp
 ### Run in Docker
 
 The same stdio server, packaged — no Python or uv needed on the machine, and the image is
-reproducible enough to hand to someone else. Build it once:
+reproducible enough to hand to someone else. Build it once, from the `servers/vbr-mcp` directory:
 
 ```
-make docker-build   # docker build -f docker/Dockerfile -t vbr-mcp . (the context is the repository root)
+make docker-build   # docker build -f docker/Dockerfile -t vbr-mcp . (the context is servers/vbr-mcp)
 ```
 
 The MCP client then starts a container for each session, in place of `uv run vbr-mcp`:
 
 ```
-docker run -i --rm --env-file /absolute/path/to/vbr-mcp/.env vbr-mcp
+docker run -i --rm --env-file /absolute/path/to/veeam-mcp-server/servers/vbr-mcp/.env vbr-mcp
 ```
 
 `-i` attaches stdin, which carries the MCP protocol; leave out `-t`, as a terminal would corrupt
@@ -115,7 +116,7 @@ If `VBR_BASE_URL` points at a VBR server reachable only from your machine, addre
 ### Claude Code
 
 ```
-claude mcp add vbr -- uv run --project /absolute/path/to/vbr-mcp vbr-mcp
+claude mcp add vbr -- uv run --project /absolute/path/to/veeam-mcp-server/servers/vbr-mcp vbr-mcp
 ```
 
 `--project` pins the uv project explicitly, independent of the working directory Claude
@@ -125,7 +126,7 @@ a checked-in `.mcp.json`.
 In Docker, once the image is built:
 
 ```
-claude mcp add vbr -- docker run -i --rm --env-file /absolute/path/to/vbr-mcp/.env vbr-mcp
+claude mcp add vbr -- docker run -i --rm --env-file /absolute/path/to/veeam-mcp-server/servers/vbr-mcp/.env vbr-mcp
 ```
 
 ### Claude Desktop
@@ -137,7 +138,7 @@ Add the server to `claude_desktop_config.json`, then restart Claude Desktop.
   "mcpServers": {
     "vbr": {
       "command": "uv",
-      "args": ["run", "--project", "/absolute/path/to/vbr-mcp", "vbr-mcp"]
+      "args": ["run", "--project", "/absolute/path/to/veeam-mcp-server/servers/vbr-mcp", "vbr-mcp"]
     }
   }
 }
@@ -151,8 +152,8 @@ tail -n 20 -F ~/Library/Logs/Claude/mcp-server-vbr.log
 
 ### Visual Studio Code
 
-Create `.vscode/mcp.json` in the workspace. This form prompts for the VBR password instead of
-writing it to disk:
+Create `.vscode/mcp.json` in a workspace opened at the repository root. This form prompts for
+the VBR password instead of writing it to disk:
 
 ```json
 {
@@ -168,7 +169,7 @@ writing it to disk:
     "vbr": {
       "type": "stdio",
       "command": "uv",
-      "args": ["run", "--project", "${workspaceFolder}", "vbr-mcp"],
+      "args": ["run", "--project", "${workspaceFolder}/servers/vbr-mcp", "vbr-mcp"],
       "env": {
         "VBR_BASE_URL": "https://vbr.example.com:9419",
         "VBR_USERNAME": "svc-mcp",
