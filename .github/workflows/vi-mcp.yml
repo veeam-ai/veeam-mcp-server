@@ -1,4 +1,4 @@
-name: Pull Request Validation
+name: VI MCP
 
 on:
   pull_request:
@@ -6,13 +6,50 @@ on:
       - main
   workflow_dispatch:
 
+# Read-only by default: nothing here needs to write to the repository.
+permissions:
+  contents: read
+
 defaults:
   run:
     working-directory: servers/vi-mcp
 
-jobs: 
+jobs:
+  # The workflow runs on every pull request so that the required "VI MCP All Checks"
+  # check is always reported. This job decides whether the checks below have anything
+  # to do: a job skipped by its condition counts as passed and does not block the merge.
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The pull request merge commit and its first parent, the base branch, are enough to diff.
+          fetch-depth: 2
+      - id: diff
+        name: Detect VI MCP changes
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            changed=true
+          else
+            files=$(git diff --name-only HEAD^1 HEAD)
+            if grep -qE '^(servers/vi-mcp/|\.github/workflows/vi-mcp\.yml$)' <<< "$files"; then
+              changed=true
+            else
+              changed=false
+            fi
+          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
   lint-and-quality:
     name: Code Quality
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -27,6 +64,8 @@ jobs:
 
   unit-tests:
     name: Unit Tests
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -41,6 +80,8 @@ jobs:
 
   build:
     name: Build Project
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,6 +96,8 @@ jobs:
 
   security-audit:
     name: Security Audit
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,3 +109,26 @@ jobs:
       - run: npm ci
       - name: Run audit
         run: npm run audit
+
+  # The only check the main branch ruleset requires from this workflow, so jobs can be
+  # added or renamed without touching the ruleset. It runs even when a job above fails
+  # or is cancelled: skipped, it would count as passed and let the merge through.
+  result:
+    name: VI MCP All Checks
+    if: always()
+    needs: [changes, lint-and-quality, unit-tests, build, security-audit]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Check that every VI MCP job passed or was skipped
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          failed=$(jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key): \(.value.result)"' <<< "$NEEDS")
+          if [ -n "$failed" ]; then
+            echo "::error::Some VI MCP jobs did not pass"
+            echo "$failed"
+            exit 1
+          fi

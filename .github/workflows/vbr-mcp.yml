@@ -1,4 +1,4 @@
-name: VBR MCP Pull Request Validation
+name: VBR MCP
 
 on:
   pull_request:
@@ -15,8 +15,41 @@ defaults:
     working-directory: servers/vbr-mcp
 
 jobs:
+  # The workflow runs on every pull request so that the required "VBR MCP All Checks"
+  # check is always reported. This job decides whether the checks below have anything
+  # to do: a job skipped by its condition counts as passed and does not block the merge.
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The pull request merge commit and its first parent, the base branch, are enough to diff.
+          fetch-depth: 2
+      - id: diff
+        name: Detect VBR MCP changes
+        run: |
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
+            changed=true
+          else
+            files=$(git diff --name-only HEAD^1 HEAD)
+            if grep -qE '^(servers/vbr-mcp/|\.github/workflows/vbr-mcp\.yml$)' <<< "$files"; then
+              changed=true
+            else
+              changed=false
+            fi
+          fi
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+
   lint-and-quality:
-    name: VBR MCP Code Quality
+    name: Code Quality
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -29,7 +62,9 @@ jobs:
         run: make quality-check
 
   typecheck:
-    name: VBR MCP Type Check
+    name: Type Check
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +77,9 @@ jobs:
         run: make typecheck
 
   unit-tests:
-    name: VBR MCP Unit Tests
+    name: Unit Tests
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -55,7 +92,9 @@ jobs:
         run: make test
 
   config-drift:
-    name: VBR MCP Config Drift
+    name: Config Drift
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -68,7 +107,9 @@ jobs:
         run: make check-env-example
 
   build:
-    name: VBR MCP Build
+    name: Build
+    needs: changes
+    if: needs.changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -82,3 +123,26 @@ jobs:
       # job is what catches an internal base image or CA host creeping back in.
       - name: Build container image
         run: docker build -f docker/Dockerfile -t vbr-mcp:ci .
+
+  # The only check the main branch ruleset requires from this workflow, so jobs can be
+  # added or renamed without touching the ruleset. It runs even when a job above fails
+  # or is cancelled: skipped, it would count as passed and let the merge through.
+  result:
+    name: VBR MCP All Checks
+    if: always()
+    needs: [changes, lint-and-quality, typecheck, unit-tests, config-drift, build]
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .
+    steps:
+      - name: Check that every VBR MCP job passed or was skipped
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          failed=$(jq -r 'to_entries[] | select(.value.result != "success" and .value.result != "skipped") | "\(.key): \(.value.result)"' <<< "$NEEDS")
+          if [ -n "$failed" ]; then
+            echo "::error::Some VBR MCP jobs did not pass"
+            echo "$failed"
+            exit 1
+          fi
