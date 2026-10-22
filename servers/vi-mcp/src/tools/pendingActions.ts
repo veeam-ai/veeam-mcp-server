@@ -4,11 +4,13 @@
  */
 
 import type { ChatService } from '@/services/chatService';
+import type { ProductRestClient } from '@/product';
 import { ConfirmationRequest } from '@/actions/types';
 
 export interface PendingActionEntry {
     request: ConfirmationRequest;
     chat: ChatService;
+    client: ProductRestClient;
 }
 
 export class PendingActionRegistry {
@@ -33,6 +35,12 @@ export class PendingActionRegistry {
     public get size(): number {
         return this.entries.size;
     }
-}
 
-export const pendingActions = new PendingActionRegistry();
+    public abandonAll(): void {
+        const chats = new Set(Array.from(this.entries.values(), (entry) => entry.chat));
+        this.entries.clear();
+        for (const chat of chats) {
+            chat.disconnect();
+        }
+    }
+}

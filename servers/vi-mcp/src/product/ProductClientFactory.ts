@@ -5,16 +5,22 @@
 
 import { ProductRestClient } from './ProductRestClient';
 import { VoneRestClient, VspcRestClient, VbrRestClient } from './clients';
-import { ProductRestClientConfig } from './clients/types';
+import { ProductRestClientConfig, ProductUserAuth } from './clients/types';
 import { settings, getProductCode } from '@/config/settings';
 
-export function createProductRestClient(): ProductRestClient {
+export function productAuthFromSettings(): ProductUserAuth | undefined {
+    if (settings.ADMIN_USERNAME === undefined || settings.ADMIN_PASSWORD === undefined) {
+        return undefined;
+    }
+    return { kind: 'password', credentials: { username: settings.ADMIN_USERNAME, password: settings.ADMIN_PASSWORD } };
+}
+
+export function createProductRestClient(auth: ProductUserAuth | undefined): ProductRestClient {
     const productCode = getProductCode();
 
     const productRestClientConfig: ProductRestClientConfig = {
         baseURL: settings.WEB_URL,
-        username: settings.ADMIN_USERNAME,
-        password: settings.ADMIN_PASSWORD,
+        auth,
         acceptSelfSignedCert: settings.ACCEPT_SELF_SIGNED_CERT,
     };
 
