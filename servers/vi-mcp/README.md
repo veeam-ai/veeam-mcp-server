@@ -42,7 +42,7 @@ Veeam Intelligence MCP Server delivers cross-product, operational intelligence w
 
 ## Prerequisites
 
-- Docker or Node.js 24 installed on your system
+- Docker or Node.js 24.22.1 or newer installed on your system (earlier 24.x releases are affected by CVE-2026-111497)
 - One supported Veeam product installed with an active, non-Community license:
   - Veeam Backup & Replication (`vbr`)
   - Veeam ONE (`vone`)
