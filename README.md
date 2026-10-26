@@ -6,7 +6,7 @@ This repository hosts Model Context Protocol (MCP) servers for Veeam products. E
 
 | Server | Directory | Stack | Description |
 |---|---|---|---|
-| [Veeam Intelligence MCP Server](servers/vi-mcp/README.md) | `servers/vi-mcp` | TypeScript, Node.js 24 | Brings Veeam Intelligence to MCP clients for monitoring and management of Veeam Backup & Replication, Veeam ONE, and Veeam Service Provider Console (VSPC). |
+| [Veeam Intelligence MCP Server](servers/vi-mcp/README.md) | `servers/vi-mcp` | TypeScript, Node.js 24.22.1+ | Brings Veeam Intelligence to MCP clients for monitoring and management of Veeam Backup & Replication, Veeam ONE, and Veeam Service Provider Console (VSPC). |
 | [Veeam Backup & Replication MCP Server](servers/vbr-mcp/README.md) | `servers/vbr-mcp` | Python 3.13, uv | Exposes the Veeam Backup & Replication REST API as MCP tools grouped by resource: jobs, sessions, backups, restore, backup infrastructure, licensing, and more. Some tools change state or can overwrite data, so read its [safety section](servers/vbr-mcp/README.md#safety-and-permissions) first. |
 
 See the README of each server for prerequisites, setup, and client configuration.

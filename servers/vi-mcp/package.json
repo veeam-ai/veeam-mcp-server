@@ -39,7 +39,7 @@
     "license": "MIT",
     "description": "Veeam Intelligence MCP server that integrates with any MCP-compatible client (Claude Desktop, VS Code, etc.) for enhanced Veeam Backup & Replication, Veeam One, and VSPC monitoring and management capabilities",
     "engines": {
-        "node": ">=24.0.0",
+        "node": "^24.22.1 || >=26.12.1",
         "npm": ">=10.0.0"
     },
     "dependencies": {
