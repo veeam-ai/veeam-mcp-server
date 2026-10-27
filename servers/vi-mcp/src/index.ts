@@ -3,21 +3,50 @@
  * Licensed under the MIT License. See LICENSE in the project root for license information.
  */
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { registerTools } from './mcp/registerTools';
+import { createMcpSession } from './mcp/session';
+import { settings } from './config/settings';
+import { httpServerOptionsFromSettings, startHttpServer } from './transports/http';
+import { productAuthOf } from './auth/identity';
+import { productAuthFromSettings } from './product';
 import { log } from './utils/logger';
 
-// Create an MCP server
-const server = new McpServer({
-    name: 'Veeam Intelligence',
-    version: '1.0.0',
-});
+async function serveStdio(): Promise<void> {
+    const { server } = createMcpSession(productAuthFromSettings);
+    await server.connect(new StdioServerTransport());
+    log.info('MCP server started on stdio; the chatbot mode is read from the Veeam product on every request');
+}
 
-// Tool registration is static: the Veeam product is contacted only when a tool is called.
-registerTools(server);
+async function serveHttp(): Promise<void> {
+    const options = httpServerOptionsFromSettings(settings, () => createMcpSession(productAuthOf));
+    const running = await startHttpServer(options);
 
-// Start receiving messages on stdin and sending messages on stdout
-const transport = new StdioServerTransport();
-await server.connect(transport);
-log.info('MCP server started; the chatbot mode is read from the Veeam product on every request');
+    log.info(
+        `MCP server listening on ${running.url} (${settings.MCP_HTTP_AUTH} sign-in); every user signs in with their own Veeam account`,
+    );
+    if (settings.MCP_HTTP_AUTH === 'oauth' && settings.MCP_HTTP_TOKEN_SECRET === undefined) {
+        log.warn('MCP_HTTP_TOKEN_SECRET is not set: OAuth sign-ins end when the server restarts and do not work across replicas');
+    }
+
+    let stopping = false;
+    const shutdown = (signal: string) => {
+        if (stopping) {
+            return;
+        }
+        stopping = true;
+        log.info(`${signal} received; closing ${running.sessionCount} HTTP session(s)`);
+        void running.close().then(() => process.exit(0));
+    };
+
+    process.once('SIGINT', () => shutdown('SIGINT'));
+    process.once('SIGTERM', () => shutdown('SIGTERM'));
+}
+
+switch (settings.MCP_TRANSPORT) {
+    case 'stdio':
+        await serveStdio();
+        break;
+    case 'http':
+        await serveHttp();
+        break;
+}
