@@ -40,5 +40,8 @@ USER appuser
 # Set environment variables
 ENV NODE_ENV=production
 
+# Port for MCP_TRANSPORT=http
+EXPOSE 8080
+
 # Start the application
 CMD ["node", "build/index.js"] 

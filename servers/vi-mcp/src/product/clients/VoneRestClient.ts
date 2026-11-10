@@ -5,7 +5,7 @@
 
 import { BaseRestClient } from '@/product/clients/BaseRestClient';
 import { ServiceInfo, ChatBotAuthResponse } from '@/common/types';
-import { AuthRequestConfig, ProductAuthResponse, ProductAuthResponseUnifiedDate } from './types';
+import { AuthRequestConfig, ProductAuthResponseUnifiedDate } from './types';
 import { mergeUrlParts } from '@/utils/url';
 
 const USER_AUTH_URL_SUFFIX = '/api/token';
@@ -17,6 +17,8 @@ interface VoneBotAuthResponse {
 }
 
 export class VoneRestClient extends BaseRestClient {
+    protected readonly userTokenPath = USER_AUTH_URL_SUFFIX;
+
     async getServiceInfo(): Promise<ServiceInfo> {
         return this.get<ServiceInfo>('/api/v2.2/veeamintelligence/serviceInfo');
     }
@@ -42,28 +44,9 @@ export class VoneRestClient extends BaseRestClient {
         return this.post<ChatBotAuthResponse>('/api/v2.2/veeamintelligence/authenticate', data, config);
     }
 
-    protected async authenticateProductRest(): Promise<ProductAuthResponseUnifiedDate> {
-        const currentUserAuthResponse = await this.authenticateAsCurrentUser();
-        const chatBotAuthResponse = await this.authenticateAsChatBotRole(currentUserAuthResponse.access_token);
-
-        return chatBotAuthResponse;
-    }
-
-    private async authenticateAsCurrentUser(): Promise<ProductAuthResponse> {
-        const authData = new URLSearchParams();
-        authData.append('username', this.config.username);
-        authData.append('password', this.config.password);
-        authData.append('grant_type', 'password');
-
-        const authUrl = mergeUrlParts(this.config.baseURL, USER_AUTH_URL_SUFFIX);
-        const response = await this.client.post<ProductAuthResponse>(authUrl, authData.toString(), {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-        });
-
-        const data = response.data;
-        return data;
+    protected async authenticateProductRest(renewUserToken: boolean): Promise<ProductAuthResponseUnifiedDate> {
+        const { accessToken } = await this.currentUserToken(renewUserToken);
+        return this.authenticateAsChatBotRole(accessToken);
     }
 
     private async authenticateAsChatBotRole(userToken: string): Promise<ProductAuthResponseUnifiedDate> {

@@ -16,6 +16,7 @@ export interface AuthRequestConfig {
 
 export interface ProductAuthResponse {
     access_token: string;
+    refresh_token?: string;
     expires_in: number;
     token_type: 'Bearer';
 }
@@ -26,10 +27,26 @@ export interface ProductAuthResponseUnifiedDate {
     token_type: 'Bearer';
 }
 
-export interface ProductRestClientConfig {
-    baseURL: string;
+export interface ProductCredentials {
     username: string;
     password: string;
+}
+
+export interface ProductUserToken {
+    accessToken: string;
+    refreshToken?: string;
+    expiresAt: number;
+}
+
+export const USER_TOKEN_EXPIRY_SKEW_MS = 60_000;
+
+export type ProductUserAuth =
+    | { kind: 'password'; credentials: ProductCredentials }
+    | { kind: 'token'; token: ProductUserToken; renew?: (current: ProductUserToken) => Promise<ProductUserToken> };
+
+export interface ProductRestClientConfig {
+    baseURL: string;
+    auth?: ProductUserAuth;
     acceptSelfSignedCert: boolean;
 }
 

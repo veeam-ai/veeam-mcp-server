@@ -12,6 +12,8 @@ const USER_AUTH_URL_SUFFIX = '/private-api/oauth2/token';
 const BOT_AUTH_URL_SUFFIX = '/private-api/oauth2/vbr_extension';
 
 export class VbrRestClient extends BaseRestClient {
+    protected readonly userTokenPath = USER_AUTH_URL_SUFFIX;
+
     async getServiceInfo(): Promise<ServiceInfo> {
         return this.get<ServiceInfo>('/private-api/v1/veeamintelligence/serviceInfo');
     }
@@ -37,29 +39,9 @@ export class VbrRestClient extends BaseRestClient {
         return this.post<ChatBotAuthResponse>('/private-api/v1/veeamintelligence/authenticate', data, config);
     }
 
-    protected async authenticateProductRest(): Promise<ProductAuthResponseUnifiedDate> {
-        const currentUserAuthResponse = await this.authenticateAsCurrentUser();
-        const chatBotAuthResponse = await this.authenticateAsChatBotRole(currentUserAuthResponse.access_token);
-
-        return chatBotAuthResponse;
-    }
-
-    private async authenticateAsCurrentUser(): Promise<ProductAuthResponse> {
-        const authData = new URLSearchParams();
-        authData.append('username', this.config.username);
-        authData.append('password', this.config.password);
-        authData.append('grant_type', 'password');
-
-        const privateRestAuthUrl = mergeUrlParts(this.config.baseURL, USER_AUTH_URL_SUFFIX);
-
-        const response = await this.client.post<ProductAuthResponse>(privateRestAuthUrl, authData.toString(), {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-        });
-
-        const data = response.data;
-        return data;
+    protected async authenticateProductRest(renewUserToken: boolean): Promise<ProductAuthResponseUnifiedDate> {
+        const { accessToken } = await this.currentUserToken(renewUserToken);
+        return this.authenticateAsChatBotRole(accessToken);
     }
 
     private async authenticateAsChatBotRole(userToken: string): Promise<ProductAuthResponseUnifiedDate> {

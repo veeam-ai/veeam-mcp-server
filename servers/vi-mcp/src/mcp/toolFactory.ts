@@ -30,8 +30,10 @@ export function createToolMetadata(): ToolMetadata {
         'disabling a job). When the response contains "pending_action", the action has NOT run yet: show the user the title, description, the ' +
         "exact request (method, path, body) and Veeam Intelligence's own description, ask for explicit approval, and only then call " +
         "veeam-confirm-action with the action_id and approve=true, or approve=false if the user declines. Never approve on the user's behalf " +
-        'and never answer a confirmation by calling this tool again. The "actions" field lists actions that were executed, declined, rejected ' +
-        'by policy or expired during the answer.';
+        'and never answer a confirmation by calling this tool again. In clients that show confirmation dialogs, the user approves or declines ' +
+        'in a dialog you cannot see, and the response contains no "pending_action". The "actions" field lists every action from the answer ' +
+        'with its "decision": "approved" means the user approved it, "declined" means the user declined it, "expired" means the user did not ' +
+        'answer in time, and "rejected" means the MCP server policy blocked it. Never report an approved action as approved by the server.';
 
     return {
         title: 'Answer Veeam Question',

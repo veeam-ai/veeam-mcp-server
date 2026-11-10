@@ -5,9 +5,9 @@
 
 import { ChatService } from '@/services';
 import { TurnOutcome } from '@/services/types';
-import { createProductRestClient, ProductRestClient } from '@/product';
+import { createProductRestClient, ProductRestClient, ProductUserAuth } from '@/product';
 import { settings, getProductCode } from '@/config/settings';
-import { pendingActions } from './pendingActions';
+import { PendingActionRegistry } from './pendingActions';
 import { ActionOutcome, ConfirmationRequest } from '@/actions/types';
 import { Artifact, ChatbotMode } from '@/common/types';
 import { log } from '@/utils/logger';
@@ -16,6 +16,8 @@ import { log } from '@/utils/logger';
 export type ConfirmationHandler = (request: ConfirmationRequest) => Promise<boolean>;
 
 export interface AskOptions {
+    pendingActions: PendingActionRegistry;
+    productAuth: ProductUserAuth | undefined;
     /**
      * When provided (client supports elicitation), confirmations are resolved inside the tool call.
      * Otherwise the call returns early with `pending_action` and the client must call
@@ -93,7 +95,7 @@ function createChatService(client: ProductRestClient): ChatService {
  * Consume turn outcomes until the answer is complete, resolving confirmations in-band when a
  * handler is available, or parking the turn in the pending-action registry otherwise.
  */
-async function driveTurn(chat: ChatService, outcome: TurnOutcome, options: AskOptions): Promise<AskResult> {
+async function driveTurn(chat: ChatService, client: ProductRestClient, outcome: TurnOutcome, options: AskOptions): Promise<AskResult> {
     const acc: AskResult = { message: '', artifacts: [], actions: [], mode: chat.getEffectiveMode() };
     let current = outcome;
 
@@ -110,7 +112,8 @@ async function driveTurn(chat: ChatService, outcome: TurnOutcome, options: AskOp
         const { request } = current;
 
         if (options.confirmationHandler === undefined) {
-            const entry = { request, chat };
+            const { pendingActions } = options;
+            const entry = { request, chat, client };
             pendingActions.add(entry);
             void chat.whenSettled(request.id).then(() => {
                 if (pendingActions.get(request.id) === entry) {
@@ -137,13 +140,13 @@ async function driveTurn(chat: ChatService, outcome: TurnOutcome, options: AskOp
     }
 }
 
-export async function answerQuestion(question: string, options: AskOptions = {}): Promise<AskResult> {
+export async function answerQuestion(question: string, options: AskOptions): Promise<AskResult> {
     const debug = options.log ?? (() => {});
     let chat: ChatService | undefined;
 
     try {
         debug('Initializing ProductClient...');
-        const client: ProductRestClient = createProductRestClient();
+        const client: ProductRestClient = createProductRestClient(options.productAuth);
 
         debug('Initializing Veeam Intelligence Service...');
         chat = createChatService(client);
@@ -152,7 +155,7 @@ export async function answerQuestion(question: string, options: AskOptions = {})
         await chat.initialize();
 
         const outcome = await chat.sendMessage(question);
-        const result = await driveTurn(chat, outcome, options);
+        const result = await driveTurn(chat, client, outcome, options);
 
         debug('Answer: ' + result.message);
         debug('Artifacts: ' + JSON.stringify(result.artifacts));
@@ -169,7 +172,8 @@ export async function answerQuestion(question: string, options: AskOptions = {})
  * Second step of the two-step flow: apply the user's decision to a parked action and return the
  * rest of the Veeam Intelligence answer (or the next pending action).
  */
-export async function confirmAction(actionId: string, approve: boolean, options: AskOptions = {}): Promise<AskResult> {
+export async function confirmAction(actionId: string, approve: boolean, options: AskOptions): Promise<AskResult> {
+    const { pendingActions } = options;
     const entry = pendingActions.get(actionId);
     if (entry === undefined) {
         throw new Error(
@@ -179,6 +183,10 @@ export async function confirmAction(actionId: string, approve: boolean, options:
 
     pendingActions.delete(actionId);
 
+    if (options.productAuth !== undefined) {
+        entry.client.updateUserAuth(options.productAuth);
+    }
+
     if (!entry.chat.resolveConfirmation(actionId, approve)) {
         throw new Error(`Action "${actionId}" has already expired. The action was not executed.`);
     }
@@ -187,7 +195,7 @@ export async function confirmAction(actionId: string, approve: boolean, options:
 
     try {
         const outcome = await entry.chat.resume();
-        return await driveTurn(entry.chat, outcome, options);
+        return await driveTurn(entry.chat, entry.client, outcome, options);
     } catch (error: any) {
         entry.chat.disconnect();
         const errorMessage = error?.message || String(error);
@@ -195,6 +203,6 @@ export async function confirmAction(actionId: string, approve: boolean, options:
     }
 }
 
-export function listPendingActions(): PendingActionView[] {
+export function listPendingActions(pendingActions: PendingActionRegistry): PendingActionView[] {
     return pendingActions.list().map(toPendingActionView);
 }
